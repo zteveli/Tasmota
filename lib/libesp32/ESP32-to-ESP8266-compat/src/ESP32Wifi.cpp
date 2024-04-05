@@ -124,22 +124,36 @@ void WiFiClass32::setSleepMode(int iSleepMode) {
 }
 
 int WiFiClass32::getPhyMode() {
-  int phy_mode = 0;  // " BGNL"
-  uint8_t protocol_bitmap;
-  if (esp_wifi_get_protocol(WIFI_IF_STA, &protocol_bitmap) == ESP_OK) {
-    if (protocol_bitmap & 1) { phy_mode = TAS_WIFI_PHY_MODE_11B; }  // 1 = 11b (WIFI_PHY_MODE_11B)
-    if (protocol_bitmap & 2) { phy_mode = TAS_WIFI_PHY_MODE_11G; }  // 2 = 11bg (WIFI_PHY_MODE_11G)
-    if (protocol_bitmap & 4) { phy_mode = TAS_WIFI_PHY_MODE_11N; }  // 3 = 11bgn (WIFI_PHY_MODE_11N)
-    if (protocol_bitmap & 8) { phy_mode = 4; }  // Low rate (WIFI_PHY_MODE_LR)
+  /*
+    typedef enum
+    {
+      WIFI_PHY_MODE_LR,   // PHY mode for Low Rate
+      WIFI_PHY_MODE_11B,  // PHY mode for 11b
+      WIFI_PHY_MODE_11G,  // PHY mode for 11g
+      WIFI_PHY_MODE_HT20, // PHY mode for Bandwidth HT20 (11n)
+      WIFI_PHY_MODE_HT40, // PHY mode for Bandwidth HT40 (11n)
+      WIFI_PHY_MODE_HE20, // PHY mode for Bandwidth HE20 (11ax)
+    } wifi_phy_mode_t;
+  */
+  int phy_mode = 0;  // "low rate|11b|11g|HT20|HT40|HE20"
+  wifi_phy_mode_t WiFiMode;
+  if (esp_wifi_sta_get_negotiated_phymode(&WiFiMode) == ESP_OK) {
+    phy_mode = (int)WiFiMode;
+    if (phy_mode > 5) {
+      phy_mode = 5;
+    }
   }
   return phy_mode;
 }
 
 bool WiFiClass32::setPhyMode(WiFiPhyMode_t mode) {
-  uint8_t protocol_bitmap = WIFI_PROTOCOL_11B;     // 1
+  uint8_t protocol_bitmap = WIFI_PROTOCOL_11B;      // 1
   switch (mode) {
-    case 3: protocol_bitmap |= WIFI_PROTOCOL_11N;  // 4
-    case 2: protocol_bitmap |= WIFI_PROTOCOL_11G;  // 2
+#if ESP_IDF_VERSION_MAJOR >= 5
+    case 4: protocol_bitmap |= WIFI_PROTOCOL_11AX;  // 16
+#endif
+    case 3: protocol_bitmap |= WIFI_PROTOCOL_11N;   // 4
+    case 2: protocol_bitmap |= WIFI_PROTOCOL_11G;   // 2
   }
   return (ESP_OK == esp_wifi_set_protocol(WIFI_IF_STA, protocol_bitmap));
 }
