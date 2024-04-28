@@ -166,6 +166,7 @@ class Multicontroller
   def init()
     self.all_ext_gpios = [self.ext1gpios, self.ext2gpios, self.ext3gpios, self.ext4gpios]
     tasmota.add_driver(self)
+    self.web_add_handler()
   end
 
   def close()
@@ -226,31 +227,55 @@ class Multicontroller
   end
 
   def show_dev_info(dev_info, all_gpios, ext_gpios)
-    if (dev_info.name) webserver.content_send('<p></p>Name: ' + dev_info.name) end
-    if (dev_info.desc) webserver.content_send('<p></p>Desc.: ' + dev_info.desc) end
-    if (dev_info.version) webserver.content_send('<p></p>Ver.: ' + dev_info.version) end
-    if (dev_info.prod_date) webserver.content_send('<p></p>Prod.: ' + dev_info.prod_date) end
+    # Show board information
+    webserver.content_send('<p></p><fieldset><legend><b>Board information</b></legend>')
+    if (dev_info)
+      if (dev_info.name) webserver.content_send('<p></p><b>Name:</b>' + dev_info.name) end
+      if (dev_info.desc) webserver.content_send('<p></p><b>Desc.:</b> ' + dev_info.desc) end
+      if (dev_info.version) webserver.content_send('<p></p><b>Ver.:</b> ' + dev_info.version) end
+      if (dev_info.prod_date) webserver.content_send('<p></p><b>Prod.:</b> ' + dev_info.prod_date) end
+      webserver.content_send('</fieldset>')
 
-    webserver.content_send('<p></p>')
-    webserver.content_send('<table>')
-    webserver.content_send('<thead><tr><th>Ch.</th><th>Name</th><th>Description</th><th>Type</th><th>Properties</th><th>Parameters</th></tr></thead>')
-    webserver.content_send('<tbody>')
-    for ioch : dev_info.io_channels
-      webserver.content_send('<tr>')
-      self.show_ioch_info(ioch)
-      webserver.content_send('</tr>')
+      # Show board connector pinout
+      webserver.content_send('<p></p><fieldset><legend><b>Board connector pinout</b></legend>')
+      webserver.content_send('<p></p><table>')
+      webserver.content_send('<thead><tr>')
+      for pin_num : 1..12
+        webserver.content_send(format('<th>%i</th>', pin_num))
+      end
+      webserver.content_send('</tr></thead>')
+      webserver.content_send('<tbody>')
+      webserver.content_send('<tr></tr>')
+      webserver.content_send('</tbody></table>')
+      webserver.content_send('</fieldset>')
+  
+      # Show I/O channel configuration
+      webserver.content_send('<p></p><fieldset><legend><b>I/O channels</b></legend>')
+      webserver.content_send('<p></p>')
+      webserver.content_send('<table>')
+      webserver.content_send('<thead><tr><th>Ch.</th><th>Name</th><th>Description</th><th>Type</th><th>Properties</th><th>Parameters</th></tr></thead>')
+      webserver.content_send('<tbody>')
+      for ioch : dev_info.io_channels
+        webserver.content_send('<tr>')
+        self.show_ioch_info(ioch)
+        webserver.content_send('</tr>')
+      end
+      webserver.content_send('</tbody></table>')
+    else
+      webserver.content_send('<p></p><b>NO DEVICE INFORMATION!</b>')
     end
-    webserver.content_send('</tbody>')
-    webserver.content_send('</table>')
+    webserver.content_send('</fieldset>')
 
-    webserver.content_send('<p></p>GPIO configuration:')
+    # Show GPIO configuration
+    webserver.content_send('<p></p><fieldset><legend><b>Tasmota GPIO configuration</b></legend>')
     for gpio_idx : 0 .. 5
       gpio = all_gpios.find(ext_gpios[gpio_idx], [])
       for item : gpio
-        webserver.content_send("<p></p>Channel " + str(gpio_idx + 1) + ": " + item)
+        webserver.content_send("<p></p><b>Channel " + str(gpio_idx + 1) + ":</b> " + item)
         print(gpio.tostring())
       end
     end
+    webserver.content_send('</fieldset>')
   end
 
   def show_ext_board_conf(ext_slot, conf_json)
@@ -259,11 +284,7 @@ class Multicontroller
     var mc_ext_dev = MCExtDev(conf_json)
     var dev_info = mc_ext_dev.info
 
-    if (dev_info)
-      self.show_dev_info(dev_info, all_gpios, ext_gpios)
-    else
-      webserver.content_send('<p></p>NO DEVICE INFORMATION!')
-    end
+    self.show_dev_info(dev_info, all_gpios, ext_gpios)
   end
 
   def page_mc_conf_page()
@@ -281,9 +302,9 @@ class Multicontroller
     for dev: i2c_devs
       if (dev >= 80) && (dev <= 83)
         var ext_slot = dev - 79
-        webserver.content_send("<p></p>Extension slot " + str(ext_slot) + ":")
+        webserver.content_send('<p></p><p></p><fieldset><legend><b>Extension slot ' + str(ext_slot) + '</b></legend>')
         self.show_ext_board_conf(ext_slot - 1, test_json_confs[ext_slot - 1])
-        webserver.content_send("<hr>")
+        webserver.content_send('</fieldset>')
       end
     end
 
@@ -337,4 +358,3 @@ class Multicontroller
 end
 
 mc = Multicontroller()
-mc.web_add_handler()
