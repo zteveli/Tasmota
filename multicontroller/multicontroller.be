@@ -1,38 +1,51 @@
 import webserver
 import json
 
-class IoChParam
+class McParam
   var name
   var act_value
   var value_list
 end
 
-class IoChProp
+class McProp
   var name
   var value
 end
 
-class IoCh
-  var name
-  var desc
-  var position
-  var type_id
-  var type_name
-  var properties
-  var parameters
+class McGpio
+  var chid
+  var opt
 end
 
-class ExtDevInfo
+class McPin
+  var name
+  var num
+  var func_idx
+  var func # Reference to McFunc
+end
+
+class McFunc
+  var name
+  var desc
+  var type
+  var gpios # List of McGpio
+  var params # List of McParam references
+  var props # List of McProp references
+  var pins # List of McPin. Evaluated when pins are already processed
+end
+
+class McBoardInfo
   var name
   var desc
   var version
   var prod_date
-  var properties
-  var parameters
-  var io_channels
+  var props # List of McProp
+  var params # List of McParam
+  var pins # List of McPin
+  var funcs # List of McFunc
 end
 
-class MCExtDev
+class McExtBoard
 
   static ch_types = {1:'output', 2:'input', 3:'PWM output', 4:'Latching relay set output', 5:'Latching relay reset output'}
   var info
@@ -41,118 +54,137 @@ class MCExtDev
     # Create internal representation of device information
     var info_map = json.load(dev_conf)
     if (info_map)
-      self.info = ExtDevInfo()
-      self.info.name = info_map.find('NAME', nil)
-      self.info.desc = info_map.find('DESC', nil)
-      self.info.version = info_map.find('VER', nil)
-      self.info.prod_date = info_map.find('PD', nil)
-      self.info.properties = info_map.find('PROPS', nil)
-      self.info.parameters = info_map.find('PRMS', nil)
-      self.info.io_channels = []
+      self.info = McBoardInfo()
+      self.info.name = info_map.find('NAME', '')
+      self.info.desc = info_map.find('DESC', '')
+      self.info.version = info_map.find('VER', '')
+      self.info.prod_date = info_map.find('PD', '')
+      self.info.props = []
+      self.info.params = []
+      self.info.pins = []
+      self.info.funcs = []
 
-      self.get_io_channels(info_map.find('IOCH', []))
+      var params_json = info_map.find('PRMS', [])
+      var props_json = info_map.find('PROPS', [])
+      var pins_json = info_map.find('PINS', [])
+      var funcs_json = info_map.find('FUNCS', [])
+
+      self.get_detailed_board_info(params_json, props_json, pins_json, funcs_json)
     else
       self.info = nil
     end
   end
 
-  def get_io_channels(io_channels)
-    for ioch : io_channels
-      var ioch_info = IoCh()
-      ioch_info.name = ioch.find('NAME', nil)
-      ioch_info.desc = ioch.find('DESC', nil)
-      ioch_info.position = ioch.find('POS', nil)
-      ioch_info.type_id = ioch.find('TYPE', nil)
-      if (ioch_info.type_id)
-        ioch_info.type_name = self.ch_types.find(ioch_info.type_id)
-      else
-        ioch_info.type_name = ""
-      end
-      ioch_info.properties = []
-      ioch_info.parameters = []
+  def get_param_list(params_json)
+    var ret_params = []
 
-      var props = ioch.find('PROPS', nil)
-      var params = ioch.find('PRMS', nil)
-  
-      if (props)
-        for prop : props
-          var global_prop = self.info.properties.find(prop, nil)
-  
-          if (global_prop)
-            var add_property = IoChProp()
-            add_property.name = global_prop.find("NAME", "")
-            add_property.value = global_prop.find("VAL", "")
-            ioch_info.properties.push(add_property)
-          end
+    for param_json : params_json
+      var param = McParam()
+      param.name = param_json.find("NAME", '')
+      param.value_list = param_json.find("VLIST", [])
+
+      ret_params.push(param)
+    end
+
+    return ret_params
+end
+
+  def get_property_list(props_json)
+    var ret_props = []
+
+    for prop_json : props_json
+      var prop = McProp()
+      prop.name = prop_json.find("NAME", '')
+      prop.value = prop_json.find("VAL", '')
+
+      ret_props.push(prop)
+    end
+
+    return ret_props
+  end
+
+  def get_pin_list(pins_json)
+    var ret_pins = []
+
+    for pin_json : pins_json
+      var pin = McPin()
+      pin.name = pin_json.find("NAME", '')
+      pin.num = pin_json.find("NUM", nil)
+      pin.func_idx = pin_json.find("FIDX", nil)
+ 
+      ret_pins.push(pin)
+    end
+
+    return ret_pins
+  end
+
+  def get_gpio_list(gpios_json)
+    var ret_gpios = []
+
+    for gpio_json : gpios_json
+      var gpio = McGpio()
+      gpio.chid = gpio_json.find("CHID", nil)
+      gpio.opt = gpio_json.find("OPT", nil)
+
+      ret_gpios.push(gpio)
+    end
+
+    return ret_gpios
+  end
+
+  def get_function_list(funcs_json, params, props)
+    var ret_func_list = []
+
+    for func_json : funcs_json
+      var func = McFunc()
+      func.name = func_json.find("NAME", '')
+      func.desc = func_json.find("DESC", '')
+      func.type = func_json.find("TYPE", nil)
+      func.gpios = self.get_function_list(func_json.find("GPIOS", []))
+      func.params = []
+      func.props = []
+      func.pins = []
+    
+      # Find parameter references
+      for param_json : func_json.find("PRMS", [])
+        var param_idx = param_json.find("PIDX", nil)
+
+        if (param_idx)
+          var param = params[param_idx]
+          param.act_value = param_json.find("ACT", '')
+          func.params.push(param)
         end
       end
 
-      if (params)
-        for param : params
-          var pref = param.find("PREF", nil)
-          var act_value = param.find("ACT", nil)
-          if (pref)
-            var global_param = self.info.parameters.find(pref, nil)
-
-            if (global_param)
-              var add_param = IoChParam()
-              add_param.name = global_param.find("NAME", nil)
-              add_param.value_list = global_param.find("PLIST", nil)
-              add_param.act_value = act_value
-              if (add_param.name)
-                ioch_info.parameters.push(add_param)
-              end
-            end
-          end
-        end
+      # Find property references
+      for prop_idx : func_json.find("PROPS", [])
+        func.props.push(props[prop_idx])
       end
 
-      self.info.io_channels.push(ioch_info)
+      ret_func_list.push(func)
     end
+
+    return ret_func_list
   end
 
-  def display_ioch_params(params)
-    print("      Parameters: ")
-    for param : params
-      print("        " + param.name + ": " + param.act_value)
-    end
-  end
+  def get_detailed_board_info(params_json, props_json, pins_json, funcs_json)
+    self.info.params = self.get_param_list(params_json)
+    self.info.props = self.get_property_list(props_json)
+    self.info.pins = self.get_pin_list(pins_json)
+    self.info.funcs = self.get_function_list(funcs_json, self.info.params, self.info.props)
 
-  def display_ioch_properties(props)
-    print("      Properties: ")
-    for prop : props
-      print("        " + prop.name + ": " + prop.value)
-    end
-  end
-
-  def display_ioch_info(ioch)
-    print("    " + str(ioch.position) + ":")
-    if (ioch.name) print("      Name: " + ioch.name) end
-    if (ioch.desc) print("      Description: " + ioch.desc) end
-    if (ioch.type_name) print("      Type: " + ioch.type_name) end
-
-    self.display_ioch_properties(ioch.properties)
-    self.display_ioch_params(ioch.parameters)
-  end
-
-  def display_dev_info()
-    # Print device descriptions
-    print("Device:")
-    if (self.dev.name) print("  Name: " + self.dev.name) end
-    if (self.dev.desc) print("  Description: " + self.dev.desc) end
-    if (self.dev.version) print("  Version: " + self.dev.version) end
-    if (self.dev.prod_date) print("  Production date: " + self.dev.prod_date) end
-
-    # Print I/O channels
-    print("\n  I/O channels:")
-
-    for ioch : self.dev.io_channels
-      self.display_ioch_info(ioch)
+    # Find function references for pins
+    for pin : self.info.pins
+      if (pin.func_idx)
+        var func = self.info.funcs[pin.func_idx]
+        pin.func = func
+        func.pins.push(pin)
+      end
     end
   end
 end
 
-#edi = MCExtDev('{"NAME":"High power PWM FET board","DESC":"6pcs high power FETs with current limiting","VER":"1.0","PD":"2024.01.01","PRMS":{"PRM_1":{"NAME":"Current limit","PLIST":["0.5A","1A","2A","3A","5A"]}},"PROPS":{"PR_1":{"NAME":"Maximum output current","VAL":"5A"},"PR_2":{"NAME":"Maximum working voltage","VAL":"24V"}},"IOCH":[{"NAME":"PWM out 1","DESC":"","POS":1,"TYPE":1,"PRMS":[{"PREF":"PRM_1","ACT":"1A"}],"PROPS":["PR_1"]},{"NAME":"PWM out 2","DESC":"","POS":2,"TYPE":1,"PRMS":[{"PREF":"PRM_1","ACT":"1A"}],"PROPS":["PR_1"]},{"NAME":"PWM out 3","DESC":"","POS":3,"TYPE":1,"PRMS":[{"PREF":"PRM_1","ACT":"1A"}],"PROPS":["PR_1"]},{"NAME":"PWM out 4","DESC":"","POS":4,"TYPE":1,"PRMS":[{"PREF":"PRM_1","ACT":"1A"}],"PROPS":["PR_1"]},{"NAME":"PWM out 5","DESC":"","POS":5,"TYPE":1,"PRMS":[{"PREF":"PRM_1","ACT":"1A"}],"PROPS":["PR_1"]},{"NAME":"PWM out 6","DESC":"","POS":6,"TYPE":1,"PRMS":[{"PREF":"PRM_1","ACT":"1A"}],"PROPS":["PR_1"]}]}')
+#edi = McExtBoard('{"NAME":"High power PWM FET board","DESC":"6pcs high power FETs with current limiting","VER":"1.0","PD":"2024.01.01","PRMS":{"PRM_1":{"NAME":"Current limit","PLIST":["0.5A","1A","2A","3A","5A"]}},"PROPS":{"PR_1":{"NAME":"Maximum output current","VAL":"5A"},"PR_2":{"NAME":"Maximum working voltage","VAL":"24V"}},"IOCH":[{"NAME":"PWM out 1","DESC":"","POS":1,"TYPE":1,"PRMS":[{"PREF":"PRM_1","ACT":"1A"}],"PROPS":["PR_1"]},{"NAME":"PWM out 2","DESC":"","POS":2,"TYPE":1,"PRMS":[{"PREF":"PRM_1","ACT":"1A"}],"PROPS":["PR_1"]},{"NAME":"PWM out 3","DESC":"","POS":3,"TYPE":1,"PRMS":[{"PREF":"PRM_1","ACT":"1A"}],"PROPS":["PR_1"]},{"NAME":"PWM out 4","DESC":"","POS":4,"TYPE":1,"PRMS":[{"PREF":"PRM_1","ACT":"1A"}],"PROPS":["PR_1"]},{"NAME":"PWM out 5","DESC":"","POS":5,"TYPE":1,"PRMS":[{"PREF":"PRM_1","ACT":"1A"}],"PROPS":["PR_1"]},{"NAME":"PWM out 6","DESC":"","POS":6,"TYPE":1,"PRMS":[{"PREF":"PRM_1","ACT":"1A"}],"PROPS":["PR_1"]}]}')
 #edi.display_dev_info()
 
 class Multicontroller
@@ -173,7 +205,7 @@ class Multicontroller
     tasmota.remove_driver(self)
   end
 
-  def create_ioch_params(params)
+  def create_func_params(params)
     var ret = ''
 
     if (params.size() > 0)
@@ -197,7 +229,7 @@ class Multicontroller
     return ret
   end
 
-  def create_ioch_properties(props)
+  def create_func_props(props)
     var ret = ''
 
     if (props.size() > 0)
@@ -213,14 +245,12 @@ class Multicontroller
     return ret
   end
 
-  def show_ioch_info(ioch)
-    if (ioch.position) webserver.content_send('<td>' + str(ioch.position) + '</td>') else webserver.content_send('<td></td>') end
-    if (ioch.name) webserver.content_send('<td>' + ioch.name + '</td>') else webserver.content_send('<td></td>') end
-    if (ioch.desc) webserver.content_send('<td>' + ioch.desc + '</td>') else webserver.content_send('<td></td>') end
-    if (ioch.type_name) webserver.content_send('<td>' + ioch.type_name + '</td>') else webserver.content_send('<td></td>') end
+  def show_func(func)
+    webserver.content_send('<td>' + func.name + '</td>')
+    webserver.content_send('<td>' + func.desc + '</td>')
 
-    var props = self.create_ioch_properties(ioch.properties)
-    var params = self.create_ioch_params(ioch.parameters)
+    var props = self.create_func_props(func.props)
+    var params = self.create_func_params(func.params)
 
     webserver.content_send('<td>' + props + '</td>')
     webserver.content_send('<td>' + params + '</td>')
@@ -230,34 +260,92 @@ class Multicontroller
     # Show board information
     webserver.content_send('<p></p><fieldset><legend><b>Board information</b></legend>')
     if (dev_info)
-      if (dev_info.name) webserver.content_send('<p></p><b>Name:</b>' + dev_info.name) end
-      if (dev_info.desc) webserver.content_send('<p></p><b>Desc.:</b> ' + dev_info.desc) end
-      if (dev_info.version) webserver.content_send('<p></p><b>Ver.:</b> ' + dev_info.version) end
-      if (dev_info.prod_date) webserver.content_send('<p></p><b>Prod.:</b> ' + dev_info.prod_date) end
-      webserver.content_send('</fieldset>')
+      webserver.content_send('<p></p><table><tbody>')
+      if (dev_info.name) webserver.content_send('<tr><td><b>Name:</b></td><td>' + dev_info.name + '</td></tr>') end
+      if (dev_info.desc) webserver.content_send('<tr><td><b>Desc.:</b></td><td>' + dev_info.desc + '</td></tr>') end
+      if (dev_info.version) webserver.content_send('<tr><td><b>Ver.:</b></td><td>' + dev_info.version + '</td></tr>') end
+      if (dev_info.prod_date) webserver.content_send('<tr><td><b>Prod.:</b></td><td>' + dev_info.prod_date + '</td></tr>') end
+      webserver.content_send('</tbody></table></fieldset>')
 
       # Show board connector pinout
       webserver.content_send('<p></p><fieldset><legend><b>Board connector pinout</b></legend>')
       webserver.content_send('<p></p><table>')
-      webserver.content_send('<thead><tr>')
+      webserver.content_send('<thead><tr><th>Pin num.</th>')
       for pin_num : 1..12
         webserver.content_send(format('<th>%i</th>', pin_num))
       end
       webserver.content_send('</tr></thead>')
       webserver.content_send('<tbody>')
-      webserver.content_send('<tr></tr>')
+      webserver.content_send('<tr><td>Pin name</td>')
+      var pin_names = []
+      for idx : 0..11 pin_names.push('N.C.') end
+
+      for pin : dev_info.pins
+        if (pin.num)
+          pin_names[pin.num - 1] = pin.name
+        end
+      end
+
+      for pin_name : pin_names
+        webserver.content_send('<td>' + pin_name + '</td>')
+      end
+      webserver.content_send('</tr>')
+
+      class FuncCell
+        var name
+        var span
+        var first_pin_num
+        var last_pin_num
+      end
+
+      var func_cell_list = []
+      for func : dev_info.funcs
+        var func_cell = FuncCell()
+        func_cell.name = func.name
+        func_cell.span = func.pins.size()
+        func_cell.first_pin_num = (func.pins.item(0)).num
+        func_cell.last_pin_num = (func.pins.item(-1)).num
+        func_cell_list.push(func_cell)
+      end
+
+      # Fill the gaps
+#      var idx = 0
+#      while true
+#        var func_cell1 = func_cell_list.item(idx)
+#        var func_cell2 = func_cell_list.item(idx + 1)
+#        if (func_cell1 && func_cell2)
+#          var pin_num_diff = func_cell2.first_pin_num - func_cell1.last_pin_num
+#          if (pin_num_diff > 1)
+#            var func_cell = FuncCell()
+#            func_cell.name = ''
+#            func_cell.span = pin_num_diff - 1
+#            func_cell_list.insert(func_cell)
+#            idx += 2
+#          end
+#        end
+#      end
+
+      webserver.content_send('<tr><td>Func.</td>')
+      for func_cell : func_cell_list
+        if (func_cell.span > 1)
+          webserver.content_send('<td rowspan="' + str(func_cell.span) + '">' + func_cell.name + '</td>')
+        else
+          webserver.content_send('<td>' + func_cell.name + '</td>')
+        end
+      end
+      webserver.content_send('</tr>')
       webserver.content_send('</tbody></table>')
       webserver.content_send('</fieldset>')
   
-      # Show I/O channel configuration
-      webserver.content_send('<p></p><fieldset><legend><b>I/O channels</b></legend>')
+      # Show functions
+      webserver.content_send('<p></p><fieldset><legend><b>Functions</b></legend>')
       webserver.content_send('<p></p>')
       webserver.content_send('<table>')
-      webserver.content_send('<thead><tr><th>Ch.</th><th>Name</th><th>Description</th><th>Type</th><th>Properties</th><th>Parameters</th></tr></thead>')
+      webserver.content_send('<thead><tr><th>Name</th><th>Description</th><th>Properties</th><th>Parameters</th></tr></thead>')
       webserver.content_send('<tbody>')
-      for ioch : dev_info.io_channels
+      for func : dev_info.funcs
         webserver.content_send('<tr>')
-        self.show_ioch_info(ioch)
+        self.show_func(func)
         webserver.content_send('</tr>')
       end
       webserver.content_send('</tbody></table>')
@@ -278,10 +366,10 @@ class Multicontroller
     webserver.content_send('</fieldset>')
   end
 
-  def show_ext_board_conf(ext_slot, conf_json)
-    var ext_gpios = self.all_ext_gpios[ext_slot]
+  def show_ext_board_conf(ext_board_id, conf_json)
+    var ext_gpios = self.all_ext_gpios[ext_board_id]
     var all_gpios = tasmota.cmd('GPIO')
-    var mc_ext_dev = MCExtDev(conf_json)
+    var mc_ext_dev = McExtBoard(conf_json)
     var dev_info = mc_ext_dev.info
 
     self.show_dev_info(dev_info, all_gpios, ext_gpios)
@@ -289,21 +377,27 @@ class Multicontroller
 
   def page_mc_conf_page()
     var test_json_confs = []
-    test_json_confs.push('{"NAME":"Relay board","DESC":"6pcs of HF32FA-G-005-HSL1 relays","VER":"1.0","PD":"2024.01.01","PROPS":{"PR_1":{"NAME":"Maximum power load","VAL":"10A 250VAC"}},"IOCH":[{"NAME":"Relay 1","DESC":"NC/NO relay","POS":1,"TYPE":1,"PROPS":["PR_1"]},{"NAME":"Relay 2","DESC":"NC/NO relay","POS":2,"TYPE":1,"PROPS":["PR_1"]},{"NAME":"Relay 3","DESC":"NC/NO relay","POS":3,"TYPE":1,"PROPS":["PR_1"]},{"NAME":"Relay 4","DESC":"NC/NO relay","POS":4,"TYPE":1,"PROPS":["PR_1"]},{"NAME":"Relay 5","DESC":"NC/NO relay","POS":5,"TYPE":1,"PROPS":["PR_1"]},{"NAME":"Relay 6","DESC":"NC/NO relay","POS":6,"TYPE":1,"PROPS":["PR_1"]}]}')
-    test_json_confs.push('{"NAME":"High power PWM FET board","DESC":"6pcs high power FETs with current limiting","VER":"1.0","PD":"2024.01.01","PRMS":{"PRM_1":{"NAME":"Current limit","PLIST":["0.5A","1A","2A","3A","5A"]}},"PROPS":{"PR_1":{"NAME":"Maximum output current","VAL":"5A"},"PR_2":{"NAME":"Maximum working voltage","VAL":"24V"}},"IOCH":[{"NAME":"PWM out 1","DESC":"","POS":1,"TYPE":1,"PRMS":[{"PREF":"PRM_1","ACT":"2A"}],"PROPS":["PR_1"]},{"NAME":"PWM out 2","DESC":"","POS":2,"TYPE":1,"PRMS":[{"PREF":"PRM_1","ACT":"1A"}],"PROPS":["PR_1"]},{"NAME":"PWM out 3","DESC":"","POS":3,"TYPE":1,"PRMS":[{"PREF":"PRM_1","ACT":"1A"}],"PROPS":["PR_1"]},{"NAME":"PWM out 4","DESC":"","POS":4,"TYPE":1,"PRMS":[{"PREF":"PRM_1","ACT":"1A"}],"PROPS":["PR_1"]},{"NAME":"PWM out 5","DESC":"","POS":5,"TYPE":1,"PRMS":[{"PREF":"PRM_1","ACT":"1A"}],"PROPS":["PR_1"]},{"NAME":"PWM out 6","DESC":"","POS":6,"TYPE":1,"PRMS":[{"PREF":"PRM_1","ACT":"1A"}],"PROPS":["PR_1"]}]}')
+    test_json_confs.push('{"NAME":"High power PWM FET board","DESC":"6pcs high power FETs with current limiting","VER":"1.0","PD":"2024.01.01","PRMS":[{"NAME":"Current limit","VLIST":["0.5A","1A","2A","3A","5A"]}],"PROPS":[{"NAME":"Maximum output current","VAL":"5A"},{"NAME":"Maximum working voltage","VAL":"24V"}],"PINS":[{"NAME":"GND","NUM":1,"FIDX":0},{"NAME":"OUT","NUM":2,"FIDX":0},{"NAME":"GND","NUM":3,"FIDX":1},{"NAME":"OUT","NUM":4,"FIDX":1},{"NAME":"GND","NUM":5,"FIDX":2},{"NAME":"OUT","NUM":6,"FIDX":2},{"NAME":"GND","NUM":7,"FIDX":3},{"NAME":"OUT","NUM":8,"FIDX":3},{"NAME":"GND","NUM":9,"FIDX":4},{"NAME":"OUT","NUM":10,"FIDX":4},{"NAME":"GND","NUM":11,"FIDX":5},{"NAME":"OUT","NUM":12,"FIDX":5}],"FUNCS":[{"NAME":"PWM out 1","DESC":"","TYPE":5,"GPIOS":[{"CHID":0,"OPT":3}],"PRMS":[{"PIDX":0,"ACT":"1A"}],"PROPS":[0,1]},{"NAME":"PWM out 2","DESC":"","TYPE":5,"GPIOS":[{"CHID":1,"OPT":3}],"PRMS":[{"PIDX":0,"ACT":"1A"}],"PROPS":[0,1]},{"NAME":"PWM out 3","DESC":"","TYPE":5,"GPIOS":[{"CHID":2,"OPT":3}],"PRMS":[{"PIDX":0,"ACT":"1A"}],"PROPS":[0,1]},{"NAME":"PWM out 4","DESC":"","TYPE":5,"GPIOS":[{"CHID":3,"OPT":3}],"PRMS":[{"PIDX":0,"ACT":"1A"}],"PROPS":[0,1]},{"NAME":"PWM out 5","DESC":"","TYPE":5,"GPIOS":[{"CHID":4,"OPT":3}],"PRMS":[{"PIDX":0,"ACT":"1A"}],"PROPS":[0,1]},{"NAME":"PWM out 6","DESC":"","TYPE":5,"GPIO":[{"CHID":5,"OPT":3}],"PRMS":[{"PIDX":0,"ACT":"1A"}],"PROPS":[0,1]}]}')
+    test_json_confs.push('')
     test_json_confs.push('')
     test_json_confs.push('')
 
-    var i2c_devs = wire1.scan()
+    # Scan I2C bus for device addresses
+    var i2x_addr_list = wire1.scan()
     webserver.content_start("Multicontroller Configuration")
     webserver.content_send_style()
     webserver.content_send('<style>table{width: 100%;border-collapse: collapse;}th, td{border: 1px solid gray;padding: 8px;text-align: left;}th{background-color: gray;}</style>')
 
-    for dev: i2c_devs
-      if (dev >= 80) && (dev <= 83)
-        var ext_slot = dev - 79
-        webserver.content_send('<p></p><p></p><fieldset><legend><b>Extension slot ' + str(ext_slot) + '</b></legend>')
-        self.show_ext_board_conf(ext_slot - 1, test_json_confs[ext_slot - 1])
+    for i2x_addr: i2x_addr_list
+      # Find external board addresses
+      if (i2x_addr >= 80) && (i2x_addr <= 83)
+
+        # Calculate board ID
+        var ext_board_id = i2x_addr - 79
+
+        # Display board information
+        webserver.content_send('<p></p><p></p><fieldset><legend><b>Extension slot ' + str(ext_board_id) + '</b></legend>')
+        self.show_ext_board_conf(ext_board_id - 1, test_json_confs[ext_board_id - 1])
         webserver.content_send('</fieldset>')
       end
     end
