@@ -175,7 +175,7 @@ end
 
     # Find function references for pins
     for pin : self.info.pins
-      if (pin.func_idx)
+      if (pin.func_idx != nil)
         var func = self.info.funcs[pin.func_idx]
         pin.func = func
         func.pins.push(pin)
@@ -205,55 +205,45 @@ class Multicontroller
     tasmota.remove_driver(self)
   end
 
-  def create_func_params(params)
-    var ret = ''
-
-    if (params.size() > 0)
-      ret += '<table><thead><tr><th>Name</th><th>Value</th></tr></thead><tbody>'
-
-      for param : params
-        ret += '<tr><td>' + param.name + '</td><td><select>'
-        for value : param.value_list
-          ret += '<option value="opt_' + value + '"'
-          if (value == param.act_value)
-            ret += ' selected'
-          end
-          ret += '>' + value + '</option>'
-        end
-        ret += '</select></td></tr>'
-      end
-
-      ret += '</tbody></table>'
-    end
-
-    return ret
-  end
-
-  def create_func_props(props)
-    var ret = ''
-
-    if (props.size() > 0)
-      ret = '<table><thead><tr><th>Name</th><th>Value</th></tr></thead><tbody>'
-
-      for prop : props
-        ret += '<tr><td>' + prop.name + "</td><td>" + prop.value + '</td></tr>'
-      end
-
-      ret += '</tbody></table>'
-    end
-
-    return ret
-  end
-
   def show_func(func)
-    webserver.content_send('<td>' + func.name + '</td>')
-    webserver.content_send('<td>' + func.desc + '</td>')
+    # Calculate the number of rows required for for one function row
+    var rows = 0
+    var props = func.props
+    var params = func.params
+    if (props.size() > params.size())
+      rows = props.size()
+    else
+      rows = params.size()
+    end
 
-    var props = self.create_func_props(func.props)
-    var params = self.create_func_params(func.params)
+    if (rows == 0) rows = 1 end
 
-    webserver.content_send('<td>' + props + '</td>')
-    webserver.content_send('<td>' + params + '</td>')
+    for row : 0..rows - 1
+      webserver.content_send('<tr>')
+#      if (row == 0) webserver.content_send(format('<td rowspan="%i">%s</td>'), rows, func.name) end
+#      if (row == 0) webserver.content_send(format('<td rowspan="%i">%s</td>'), rows, func.desc) end
+      if (row == 0) webserver.content_send('<td rowspan="' + str(rows) + '">' + func.name + '</td>') end
+      if (row == 0) webserver.content_send('<td rowspan="' + str(rows) + '">' + func.desc + '</td>') end
+      var prop = props.find(row)
+      var param = params.find(row)
+      if (prop) webserver.content_send('<td>' + prop.name + '</td><td>' + prop.value + '</td>') else webserver.content_send('<td></td><td></td>') end
+      if (param) 
+        webserver.content_send('<td>' + param.name + '</td>')
+        var option_list = '<select>'
+        for value : param.value_list
+          option_list += '<option value="opt_' + value + '"'
+          if (value == param.act_value)
+            option_list += ' selected'
+          end
+          option_list += '>' + value + '</option>'
+        end
+        option_list += '</select>'
+        webserver.content_send('<td>' + option_list + '</td>')
+      else
+        webserver.content_send('<td></td><td></td>')
+      end
+      webserver.content_send('</tr>')
+    end
   end
 
   def show_dev_info(dev_info, all_gpios, ext_gpios)
@@ -272,7 +262,7 @@ class Multicontroller
       webserver.content_send('<p></p><table>')
       webserver.content_send('<thead><tr><th>Pin num.</th>')
       for pin_num : 1..12
-        webserver.content_send(format('<th>%i</th>', pin_num))
+        webserver.content_send(format('<th text-align: center>%i</th>', pin_num))
       end
       webserver.content_send('</tr></thead>')
       webserver.content_send('<tbody>')
@@ -303,32 +293,38 @@ class Multicontroller
         var func_cell = FuncCell()
         func_cell.name = func.name
         func_cell.span = func.pins.size()
+        var first_pin = func.pins.item(0)
         func_cell.first_pin_num = (func.pins.item(0)).num
         func_cell.last_pin_num = (func.pins.item(-1)).num
         func_cell_list.push(func_cell)
       end
 
-      # Fill the gaps
-#      var idx = 0
-#      while true
-#        var func_cell1 = func_cell_list.item(idx)
-#        var func_cell2 = func_cell_list.item(idx + 1)
-#        if (func_cell1 && func_cell2)
-#          var pin_num_diff = func_cell2.first_pin_num - func_cell1.last_pin_num
-#          if (pin_num_diff > 1)
-#            var func_cell = FuncCell()
-#            func_cell.name = ''
-#            func_cell.span = pin_num_diff - 1
-#            func_cell_list.insert(func_cell)
-#            idx += 2
-#          end
-#        end
-#      end
+      # Fill in the gaps
+      var idx = 0
+      var exit = false
+      while (!exit)
+        var func_cell1 = func_cell_list.find(idx)
+        var func_cell2 = func_cell_list.find(idx + 1)
+        if (func_cell1 && func_cell2)
+          var pin_num_diff = func_cell2.first_pin_num - func_cell1.last_pin_num
+          if (pin_num_diff > 1)
+            var func_cell = FuncCell()
+            func_cell.name = ''
+            func_cell.span = pin_num_diff - 1
+            func_cell_list.insert(idx + 1, func_cell)
+            idx += 2
+          else
+            idx += 1
+          end
+        else
+          exit = true
+        end
+      end
 
       webserver.content_send('<tr><td>Func.</td>')
       for func_cell : func_cell_list
         if (func_cell.span > 1)
-          webserver.content_send('<td rowspan="' + str(func_cell.span) + '">' + func_cell.name + '</td>')
+          webserver.content_send('<td colspan="' + str(func_cell.span) + '">' + func_cell.name + '</td>')
         else
           webserver.content_send('<td>' + func_cell.name + '</td>')
         end
@@ -338,15 +334,13 @@ class Multicontroller
       webserver.content_send('</fieldset>')
   
       # Show functions
-      webserver.content_send('<p></p><fieldset><legend><b>Functions</b></legend>')
+      webserver.content_send('<p></p><fieldset><legend><b>Board functions</b></legend>')
       webserver.content_send('<p></p>')
       webserver.content_send('<table>')
-      webserver.content_send('<thead><tr><th>Name</th><th>Description</th><th>Properties</th><th>Parameters</th></tr></thead>')
+      webserver.content_send('<thead><tr><th>Name</th><th>Description</th><th colspan="2">Properties</th><th colspan="2">Parameters</th></tr></thead>')
       webserver.content_send('<tbody>')
       for func : dev_info.funcs
-        webserver.content_send('<tr>')
         self.show_func(func)
-        webserver.content_send('</tr>')
       end
       webserver.content_send('</tbody></table>')
     else
@@ -360,7 +354,6 @@ class Multicontroller
       gpio = all_gpios.find(ext_gpios[gpio_idx], [])
       for item : gpio
         webserver.content_send("<p></p><b>Channel " + str(gpio_idx + 1) + ":</b> " + item)
-        print(gpio.tostring())
       end
     end
     webserver.content_send('</fieldset>')
