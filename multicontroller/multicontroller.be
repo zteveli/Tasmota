@@ -53,13 +53,13 @@ class Multicontroller
 
     # Init default pin name list
     var pin_names = []
-    for idx : 0..11 pin_names.push('N.C.') end
+    for idx : 0..11 pin_names.push('---') end
 
     # Adjust pin name list
     for pin : board_info.find("PINS", [])
       var pin_num = pin.find("NUM", nil)
       if (pin_num != nil)
-        pin_names[pin_num - 1] = pin.find("NAME", 'N.A.')
+        pin_names[pin_num - 1] = pin.find("NAME", '---')
       end
     end
 
@@ -79,8 +79,8 @@ class Multicontroller
     var rows = 0
     var func_props = func.find("PROPS", [])
     var func_params = func.find("PRMS", [])
-    var props = board_info.find("PROPS", [])
-    var params = board_info.find("PRMS", [])
+    var board_props = board_info.find("PROPS", [])
+    var board_params = board_info.find("PRMS", [])
     if (func_props.size() > func_params.size())
       rows = func_props.size()
     else
@@ -96,26 +96,37 @@ class Multicontroller
       if (row == 0) webserver.content_send('<td rowspan="' + str(rows) + '">' + func.find("NAME", '') + '</td>') end
       if (row == 0) webserver.content_send('<td rowspan="' + str(rows) + '">' + func.find("DESC", '') + '</td>') end
 
-      var prop = nil
-      if (row < props.size())
-        prop = props[row]
-        print(prop.tostring())
+      # Get the property assigned to the function if any
+      var board_prop = nil
+      if (row < func_props.size())
+        var func_prop_idx = func_props[row]
+        board_prop = board_props[func_prop_idx]
       end
 
-      var param = nil
-      if (row < params.size())
-        param = params[row]
-        print(param.tostring())
+      # Get the parameter assigned to the function if any and the actual parameter
+      var board_param = nil
+      var func_param_act = nil
+      var board_param_value_list = []
+      if (row < func_params.size())
+        var func_param = func_params[row]
+        var func_param_idx = func_param.find("PIDX", nil)
+        if (func_param_idx != nil)
+          board_param = board_params[func_param_idx]
+          var func_param_act_idx = func_param.find("ACTIDX", nil)
+          if (func_param_act_idx != nil)
+            board_param_value_list = board_param.find("VLIST", '')
+            func_param_act = board_param_value_list[func_param_act_idx]
+          end
+        end
       end
 
-      var func_param = func_params.find(row)
-      if (prop != nil) webserver.content_send('<td>' + prop.find("NAME", '') + '</td><td>' + prop.find("VAL", '') + '</td>') else webserver.content_send('<td></td><td></td>') end
-      if (param != nil) 
-        webserver.content_send('<td>' + param.find("NAME", '') + '</td>')
+      if (board_prop != nil) webserver.content_send('<td>' + board_prop.find("NAME", '') + '</td><td>' + board_prop.find("VAL", '') + '</td>') else webserver.content_send('<td></td><td></td>') end
+      if (board_param != nil)
+        webserver.content_send('<td>' + board_param.find("NAME", '') + '</td>')
         var option_list = '<select>'
-        for value : param.find("VLIST", '')
+        for value : board_param_value_list
           option_list += '<option value="opt_' + value + '"'
-          if ((func_param != nil) && (value == func_param.find("ACT", '')))
+          if (value == func_param_act)
             option_list += ' selected'
           end
           option_list += '>' + value + '</option>'
@@ -224,9 +235,9 @@ class Multicontroller
 
   def page_mc_conf_page()
     var test_json_confs = []
-    test_json_confs.push('{"NAME":"High power PWM FET board","DESC":"6pcs high power FETs with current limiting","VER":"1.0","PD":"2024.01.01","PRMS":[{"NAME":"Current limit","VLIST":["0.5A","1A","2A","3A","5A"]}],"PROPS":[{"NAME":"Maximum output current","VAL":"5A"},{"NAME":"Maximum working voltage","VAL":"24V"}],"PINS":[{"NAME":"GND","NUM":1,"FIDX":0},{"NAME":"OUT","NUM":2,"FIDX":0},{"NAME":"GND","NUM":3,"FIDX":1},{"NAME":"OUT","NUM":4,"FIDX":1},{"NAME":"GND","NUM":5,"FIDX":2},{"NAME":"OUT","NUM":6,"FIDX":2},{"NAME":"GND","NUM":7,"FIDX":3},{"NAME":"OUT","NUM":8,"FIDX":3},{"NAME":"GND","NUM":9,"FIDX":4},{"NAME":"OUT","NUM":10,"FIDX":4},{"NAME":"GND","NUM":11,"FIDX":5},{"NAME":"OUT","NUM":12,"FIDX":5}],"FUNCS":[{"NAME":"PWM out 1","DESC":"","TYPE":5,"GPIOS":[{"CHID":0,"OPT":3}],"PRMS":[{"PIDX":0,"ACT":"1A"}],"PROPS":[0,1]},{"NAME":"PWM out 2","DESC":"","TYPE":5,"GPIOS":[{"CHID":1,"OPT":3}],"PRMS":[{"PIDX":0,"ACT":"1A"}],"PROPS":[0,1]},{"NAME":"PWM out 3","DESC":"","TYPE":5,"GPIOS":[{"CHID":2,"OPT":3}],"PRMS":[{"PIDX":0,"ACT":"1A"}],"PROPS":[0,1]},{"NAME":"PWM out 4","DESC":"","TYPE":5,"GPIOS":[{"CHID":3,"OPT":3}],"PRMS":[{"PIDX":0,"ACT":"1A"}],"PROPS":[0,1]},{"NAME":"PWM out 5","DESC":"","TYPE":5,"GPIOS":[{"CHID":4,"OPT":3}],"PRMS":[{"PIDX":0,"ACT":"1A"}],"PROPS":[0,1]},{"NAME":"PWM out 6","DESC":"","TYPE":5,"GPIO":[{"CHID":5,"OPT":3}],"PRMS":[{"PIDX":0,"ACT":"1A"}],"PROPS":[0,1]}]}')
+    test_json_confs.push('{"NAME":"High power PWM FET board","DESC":"6pcs high power FETs with current limiting","VER":"1.0","PD":"2024.01.01","PRMS":[{"NAME":"Current limit","VLIST":["0.5A","1A","2A","3A","5A"]}],"PROPS":[{"NAME":"Maximum output current","VAL":"5A"},{"NAME":"Maximum working voltage","VAL":"24V"}],"PINS":[{"NAME":"GND","NUM":1,"FIDX":0},{"NAME":"OUT","NUM":2,"FIDX":0},{"NAME":"GND","NUM":3,"FIDX":1},{"NAME":"OUT","NUM":4,"FIDX":1},{"NAME":"GND","NUM":5,"FIDX":2},{"NAME":"OUT","NUM":6,"FIDX":2},{"NAME":"GND","NUM":7,"FIDX":3},{"NAME":"OUT","NUM":8,"FIDX":3},{"NAME":"GND","NUM":9,"FIDX":4},{"NAME":"OUT","NUM":10,"FIDX":4},{"NAME":"GND","NUM":11,"FIDX":5},{"NAME":"OUT","NUM":12,"FIDX":5}],"FUNCS":[{"NAME":"PWM out 1","DESC":"","TYPE":5,"GPIOS":[{"CHID":0,"OPT":3}],"PRMS":[{"PIDX":0,"ACTIDX":0}],"PROPS":[0,1]},{"NAME":"PWM out 2","DESC":"","TYPE":5,"GPIOS":[{"CHID":1,"OPT":3}],"PRMS":[{"PIDX":0,"ACTIDX":1}],"PROPS":[0,1]},{"NAME":"PWM out 3","DESC":"","TYPE":5,"GPIOS":[{"CHID":2,"OPT":3}],"PRMS":[{"PIDX":0,"ACTIDX":0}],"PROPS":[0,1]},{"NAME":"PWM out 4","DESC":"","TYPE":5,"GPIOS":[{"CHID":3,"OPT":3}],"PRMS":[{"PIDX":0,"ACTIDX":2}],"PROPS":[0,1]},{"NAME":"PWM out 5","DESC":"","TYPE":5,"GPIOS":[{"CHID":4,"OPT":3}],"PRMS":[{"PIDX":0,"ACTIDX":0}],"PROPS":[0,1]},{"NAME":"PWM out 6","DESC":"","TYPE":5,"GPIO":[{"CHID":5,"OPT":3}],"PRMS":[{"PIDX":0,"ACTIDX":0}],"PROPS":[0,1]}]}')
     test_json_confs.push('{"NAME":"Relay board","DESC":"6pcs of HF32FA-G-005-HSL1 relays","VER":"1.0","PD":"2024.01.01","PROPS":[{"NAME":"Maximum rated current","VAL":"10A"},{"NAME":"Maximum rated voltage","VAL":"250VAC"}],"PINS":[{"NAME":"COM","NUM":1,"FDIDX":0},{"NAME":"NO","NUM":2,"FDIDX":0},{"NAME":"COM","NUM":3,"FDIDX":1},{"NAME":"NO","NUM":4,"FDIDX":1},{"NAME":"COM","NUM":5,"FDIDX":2},{"NAME":"NO","NUM":6,"FDIDX":2},{"NAME":"COM","NUM":7,"FDIDX":3},{"NAME":"NO","NUM":8,"FDIDX":3},{"NAME":"COM","NUM":9,"FDIDX":4},{"NAME":"NO","NUM":10,"FDIDX":4},{"NAME":"COM","NUM":11,"FDIDX":5},{"NAME":"NO","NUM":12,"FDIDX":5}],"FUNCS":[{"NAME":"Relay 1","DESC":"NO relay","TYPE":1,"GPIOS":[{"CHID":0,"OPT":1}],"PROPS":[0,1]},{"NAME":"Relay 2","DESC":"NO relay","TYPE":1,"GPIO":[{"CHID":1,"OPT":1}],"PROPS":[0,1]},{"NAME":"Relay 3","DESC":"NO relay","TYPE":1,"GPIO":[{"CHID":2,"OPT":1}],"PROPS":[0,1]},{"NAME":"Relay 4","DESC":"NO relay","TYPE":1,"GPIO":[{"CHID":3,"OPT":1}],"PROPS":[0,1]},{"NAME":"Relay 5","DESC":"NO relay","TYPE":1,"GPIO":[{"CHID":4,"OPT":1}],"PROPS":[0,1]},{"NAME":"Relay 6","DESC":"NO relay","TYPE":1,"GPIO":[{"CHID":5,"OPT":1}],"PROPS":[0,1]}]}')
-    test_json_confs.push('')
+    test_json_confs.push('{"NAME":"Test board desc","DESC":"This is the descriptor","VER":"1.0","PD":"2024.01.01","PROPS":[{"NAME":"property 1","VAL":"value1"},{"NAME":"property 2","VAL":"value 2"}],"PRMS":[{"NAME":"Param1","VLIST":["val1","val2","val3"]},{"NAME":"Param2","VLIST":["val11","val22","val33"]}],"PINS":[{"NAME":"Pin1","NUM":1,"FDIDX":0},{"NAME":"Pin2","NUM":2,"FDIDX":1},{"NAME":"Pin3","NUM":3,"FDIDX":1},{"NAME":"Pin4","NUM":4,"FDIDX":1},{"NAME":"Pin7","NUM":7,"FDIDX":2},{"NAME":"Pin8","NUM":8,"FDIDX":2},{"NAME":"Pin10","NUM":10,"FDIDX":3},{"NAME":"Pin11","NUM":11,"FDIDX":3}],"FUNCS":[{"NAME":"Func1","DESC":"Func1 desc","TYPE":1,"GPIOS":[{"CHID":2,"OPT":1},{"CHID":3,"OPT":1}],"PROPS":[0],"PRMS":[{"PIDX":1,"ACTIDX":1}]},{"NAME":"Func2","DESC":"Func2 desc","TYPE":1,"GPIO":[{"CHID":4,"OPT":1}],"PROPS":[1]},{"NAME":"Func3","DESC":"Func3 desc","TYPE":1,"GPIO":[{"CHID":5,"OPT":1}],"PRMS":[{"PIDX":0,"ACTIDX":1},{"PIDX":1,"ACTIDX":2}]},{"NAME":"Func4","DESC":"Func4 desc","TYPE":1,"GPIO":[{"CHID":5,"OPT":1}],"PRMS":[{"PIDX":0,"ACTIDX":0}]}]}')
     test_json_confs.push('')
 
     # Scan I2C bus for device addresses
