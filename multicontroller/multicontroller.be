@@ -18,6 +18,8 @@ class Multicontroller
   end
 
   def show_dev_head(board_info)
+    var ret = true
+
     webserver.content_send('<p></p><fieldset><legend><b>Board information</b></legend>')
     if (board_info)
       webserver.content_send('<p></p><table><tbody>')
@@ -28,8 +30,11 @@ class Multicontroller
       webserver.content_send('</tbody></table>')
     else
       webserver.content_send('<p></p><b>NO DEVICE INFORMATION!</b>')
+      ret = false
     end
-      webserver.content_send('</fieldset>')
+
+    webserver.content_send('</fieldset>')
+    return ret
   end
 
   def show_gpio_conf(tasm_gpios, board_gpios)
@@ -43,6 +48,28 @@ class Multicontroller
   end
 
   def show_board_conn_pinout(board_info)
+    # Class to collect information for printing a functions cells for pin list table
+    class FuncCell
+      var name
+      var span
+      var pin_num_list
+      var first_pin_num
+      var last_pin_num
+
+      def init()
+        pin_num_list = []
+      end
+    end
+
+    # Collect functions
+    var func_cell_list = []
+    var funcs = board_info.find("FUNCS", [])
+    for func : funcs
+      var func_cell = FuncCell()
+      func_cell.name = func.find("NAME", '')
+      func_cell_list.push(func_cell)
+    end
+
     webserver.content_send('<p></p><fieldset><legend><b>Board connector pinout</b></legend>')
     webserver.content_send('<p></p><table>')
     # Init table header
@@ -60,13 +87,60 @@ class Multicontroller
       var pin_num = pin.find("NUM", nil)
       if (pin_num != nil)
         pin_names[pin_num - 1] = pin.find("NAME", '---')
+
+        pin_func_idx = pin.find("PIDX", nil)
+        if (pin_func_idx != nil)
+          for func : funcs
+            for func_cell : func_cell_list
+              if (func.find("NAME", '') == func_cell.name)
+                func_cell.pin_num_list.push()
+# itt hagytam abba
+              end
+            end
+          end
+          func_cell_list
+        end
       end
     end
 
-    # Create table cells for pi names
+    # Create table cells for pin names
     webserver.content_send('</tr></thead><tbody><tr><td>Pin name</td>')
     for pin_name : pin_names
       webserver.content_send('<td>' + pin_name + '</td>')
+    end
+    webserver.content_send('</tr>')
+
+    # Create table cells for function names
+
+    # Fill in the gaps
+    var idx = 0
+    var exit = false
+    while (!exit)
+      var func_cell1 = func_cell_list.find(idx)
+      var func_cell2 = func_cell_list.find(idx + 1)
+      if (func_cell1 && func_cell2)
+        var pin_num_diff = func_cell2.first_pin_num - func_cell1.last_pin_num
+        if (pin_num_diff > 1)
+          var func_cell = FuncCell()
+          func_cell.name = ''
+          func_cell.span = pin_num_diff - 1
+          func_cell_list.insert(idx + 1, func_cell)
+          idx += 2
+        else
+          idx += 1
+        end
+      else
+        exit = true
+      end
+    end
+
+    webserver.content_send('<tr><td>Func.</td>')
+    for func_cell : func_cell_list
+      if (func_cell.span > 1)
+        webserver.content_send('<td colspan="' + str(func_cell.span) + '">' + func_cell.name + '</td>')
+      else
+        webserver.content_send('<td>' + func_cell.name + '</td>')
+      end
     end
     webserver.content_send('</tr>')
 
@@ -154,72 +228,17 @@ class Multicontroller
 
   def show_board_conf(board_info, tasm_gpios, board_gpios)
     # Show board header
-    self.show_dev_head(board_info)
+    if (self.show_dev_head(board_info))
 
-    # Show board connector pinout
-    self.show_board_conn_pinout(board_info)
-#    class FuncCell
-#      var name
-#      var span
-#      var first_pin_num
-#      var last_pin_num
-#    end
+      # Show board connector pinout
+      self.show_board_conn_pinout(board_info)
 
-#    var func_cell_list = []
-#    for func : board_info.funcs
-#      var func_cell = FuncCell()
-#      func_cell.name = func.name
-#      func_cell.span = func.pins.size()
-#      var first_pin = func.pins.item(0)
-#      print(func_cell.name)
-#      var itemf = func.pins.find(0)
-#      var itemf = func.pins.item(0)
-#      var iteml = func.pins.find(-1)
-#      var iteml = func.pins.item(-1)
-#      if (itemf) print(itemf.tostring()) end
-#      if (iteml) print(iteml.tostring()) end
-#      func_cell.first_pin_num = (func.pins.find(0)).num
-#      func_cell.last_pin_num = (func.pins.find(-1)).num
-#      func_cell_list.push(func_cell)
-#    end
+      # Show functions
+      self.show_board_funcs(board_info)
 
-    # Fill in the gaps
-#    var idx = 0
-#    var exit = false
-#    while (!exit)
-#      var func_cell1 = func_cell_list.find(idx)
-#      var func_cell2 = func_cell_list.find(idx + 1)
-#      if (func_cell1 && func_cell2)
-#        var pin_num_diff = func_cell2.first_pin_num - func_cell1.last_pin_num
-#        if (pin_num_diff > 1)
-#          var func_cell = FuncCell()
-#          func_cell.name = ''
-#          func_cell.span = pin_num_diff - 1
-#          func_cell_list.insert(idx + 1, func_cell)
-#          idx += 2
-#        else
-#          idx += 1
-#        end
-#      else
-#        exit = true
-#      end
-#    end
-
-#    webserver.content_send('<tr><td>Func.</td>')
-#    for func_cell : func_cell_list
-#      if (func_cell.span > 1)
-#        webserver.content_send('<td colspan="' + str(func_cell.span) + '">' + func_cell.name + '</td>')
-#      else
-#        webserver.content_send('<td>' + func_cell.name + '</td>')
-#      end
-#    end
-#    webserver.content_send('</tr>')
-
-    # Show functions
-    self.show_board_funcs(board_info)
-
-    # Show GPIO configuration
-    self.show_gpio_conf(tasm_gpios, board_gpios)
+      # Show GPIO configuration
+      self.show_gpio_conf(tasm_gpios, board_gpios)
+    end
   end
 
   def show_ext_board_conf(ext_board_id, board_desc_json)
