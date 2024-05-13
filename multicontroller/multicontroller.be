@@ -37,18 +37,34 @@ class Multicontroller
     return ret
   end
 
-  def show_gpio_conf(tasm_gpios, board_gpios)
+  def show_gpio_conf(board_info, tasm_gpios, board_gpios)
     webserver.content_send('<p></p><fieldset><legend><b>Tasmota GPIO configuration</b></legend>')
-    for gpio_idx : 0 .. 5
-      var gpio_name = board_gpios[gpio_idx]
-      var gpio = tasm_gpios.find(gpio_name, {})
-      webserver.content_send('<p></p><b>' + gpio_name + '</b>: ' + gpio.tostring())
+    var funcs = board_info.find("FUNCS", [])
+
+    webserver.content_send('<p></p><table><tr><th>MC Function</th><th>GPIO</th><th>Current GPIO Func</th></tr>')
+    for func : funcs
+      var func_gpios = func.find('GPIOS', [])
+      for gpio : func_gpios
+        var gpio_idx = gpio.find('CHID', nil)
+        var option = gpio.find('OPT', nil)
+        if ((gpio_idx != nil) && (option != nil))
+          var gpio_name = board_gpios[gpio_idx]
+          var esp_gpio = tasm_gpios.find(gpio_name, {})
+          webserver.content_send('<tr><td>' + func.find("NAME", '') + '</td><td>' + gpio_name + '</td><td>' + esp_gpio.tostring() + '</td></tr>')
+        end
+      end
     end
+    webserver.content_send('</table>')
+#    for gpio_idx : 0 .. 5
+#      var gpio_name = board_gpios[gpio_idx]
+#      var gpio = tasm_gpios.find(gpio_name, {})
+#      webserver.content_send('<p></p><b>' + gpio_name + '</b>: ' + gpio.tostring())
+#    end
     webserver.content_send('</fieldset>')
   end
 
   def show_board_conn_pinout(board_info)
-    # Class to collect information for printing a functions cells for pin list table
+    # Class to collect information for printing a function cells for pin list table
     class FuncCell
       var name
       var span
@@ -57,7 +73,10 @@ class Multicontroller
       var last_pin_num
 
       def init()
-        pin_num_list = []
+        self.pin_num_list = []
+        self.span = 1
+        self.first_pin_num = 0
+        self.last_pin_num = 0
       end
     end
 
@@ -73,9 +92,9 @@ class Multicontroller
     webserver.content_send('<p></p><fieldset><legend><b>Board connector pinout</b></legend>')
     webserver.content_send('<p></p><table>')
     # Init table header
-    webserver.content_send('<thead><tr><th>Pin num.</th>')
+    webserver.content_send('<tbody><tr><th>Pin num.</th>')
     for pin_num : 1..12
-      webserver.content_send(format('<th text-align: center>%i</th>', pin_num))
+      webserver.content_send(format('<td>%i</td>', pin_num))
     end
 
     # Init default pin name list
@@ -88,53 +107,52 @@ class Multicontroller
       if (pin_num != nil)
         pin_names[pin_num - 1] = pin.find("NAME", '---')
 
-        pin_func_idx = pin.find("PIDX", nil)
+        # Get function index
+        var pin_func_idx = pin.find("FIDX", nil)
         if (pin_func_idx != nil)
-          for func : funcs
-            for func_cell : func_cell_list
-              if (func.find("NAME", '') == func_cell.name)
-                func_cell.pin_num_list.push()
-# itt hagytam abba
-              end
-            end
+          var func_cell = func_cell_list[pin_func_idx]
+          func_cell.pin_num_list.push(pin_num)
+          if ((func_cell.first_pin_num == 0) || (pin_num < func_cell.first_pin_num))
+            func_cell.first_pin_num = pin_num
           end
-          func_cell_list
+          if ((func_cell.last_pin_num == 0) || (pin_num > func_cell.last_pin_num))
+            func_cell.last_pin_num = pin_num
+          end
         end
       end
     end
 
     # Create table cells for pin names
-    webserver.content_send('</tr></thead><tbody><tr><td>Pin name</td>')
+    webserver.content_send('</tr><tr><th>Pin name</th>')
     for pin_name : pin_names
       webserver.content_send('<td>' + pin_name + '</td>')
     end
     webserver.content_send('</tr>')
 
-    # Create table cells for function names
+    # Determine function cell span
+    for fc : func_cell_list
+      fc.span = (fc.last_pin_num - fc.first_pin_num) + 1
+    end
 
-    # Fill in the gaps
+    # Add empty function cells if there ar unused pins
     var idx = 0
-    var exit = false
-    while (!exit)
-      var func_cell1 = func_cell_list.find(idx)
-      var func_cell2 = func_cell_list.find(idx + 1)
-      if (func_cell1 && func_cell2)
-        var pin_num_diff = func_cell2.first_pin_num - func_cell1.last_pin_num
-        if (pin_num_diff > 1)
-          var func_cell = FuncCell()
-          func_cell.name = ''
-          func_cell.span = pin_num_diff - 1
-          func_cell_list.insert(idx + 1, func_cell)
-          idx += 2
-        else
-          idx += 1
-        end
+    while ((idx + 1) < func_cell_list.size())
+      var func_cell1 = func_cell_list[idx]
+      var func_cell2 = func_cell_list[idx + 1]
+      var pin_num_diff = func_cell2.first_pin_num - func_cell1.last_pin_num
+      if (pin_num_diff > 1)
+        var func_cell = FuncCell()
+        func_cell.name = '---'
+        func_cell.span = pin_num_diff - 1
+        func_cell_list.insert(idx + 1, func_cell)
+        idx += 2
       else
-        exit = true
+        idx += 1
       end
     end
 
-    webserver.content_send('<tr><td>Func.</td>')
+    # Create table cells for function names
+    webserver.content_send('<tr><th>Function</th>')
     for func_cell : func_cell_list
       if (func_cell.span > 1)
         webserver.content_send('<td colspan="' + str(func_cell.span) + '">' + func_cell.name + '</td>')
@@ -237,15 +255,13 @@ class Multicontroller
       self.show_board_funcs(board_info)
 
       # Show GPIO configuration
-      self.show_gpio_conf(tasm_gpios, board_gpios)
+      self.show_gpio_conf(board_info, tasm_gpios, board_gpios)
     end
   end
 
-  def show_ext_board_conf(ext_board_id, board_desc_json)
+  def show_ext_board_conf(tasm_gpios, ext_board_id, board_desc_json)
     # Get board GPIO assignments
     var board_gpios = self.ext_gpio_assignments[ext_board_id]
-    # Get Tasmota GPIOs
-    var tasm_gpios = tasmota.cmd('GPIO')
     # Parse JSON
     var board_info = json.load(board_desc_json)
 
@@ -254,8 +270,10 @@ class Multicontroller
 
   def page_mc_conf_page()
     var test_json_confs = []
-    test_json_confs.push('{"NAME":"High power PWM FET board","DESC":"6pcs high power FETs with current limiting","VER":"1.0","PD":"2024.01.01","PRMS":[{"NAME":"Current limit","VLIST":["0.5A","1A","2A","3A","5A"]}],"PROPS":[{"NAME":"Maximum output current","VAL":"5A"},{"NAME":"Maximum working voltage","VAL":"24V"}],"PINS":[{"NAME":"GND","NUM":1,"FIDX":0},{"NAME":"OUT","NUM":2,"FIDX":0},{"NAME":"GND","NUM":3,"FIDX":1},{"NAME":"OUT","NUM":4,"FIDX":1},{"NAME":"GND","NUM":5,"FIDX":2},{"NAME":"OUT","NUM":6,"FIDX":2},{"NAME":"GND","NUM":7,"FIDX":3},{"NAME":"OUT","NUM":8,"FIDX":3},{"NAME":"GND","NUM":9,"FIDX":4},{"NAME":"OUT","NUM":10,"FIDX":4},{"NAME":"GND","NUM":11,"FIDX":5},{"NAME":"OUT","NUM":12,"FIDX":5}],"FUNCS":[{"NAME":"PWM out 1","DESC":"","TYPE":5,"GPIOS":[{"CHID":0,"OPT":3}],"PRMS":[{"PIDX":0,"ACTIDX":0}],"PROPS":[0,1]},{"NAME":"PWM out 2","DESC":"","TYPE":5,"GPIOS":[{"CHID":1,"OPT":3}],"PRMS":[{"PIDX":0,"ACTIDX":1}],"PROPS":[0,1]},{"NAME":"PWM out 3","DESC":"","TYPE":5,"GPIOS":[{"CHID":2,"OPT":3}],"PRMS":[{"PIDX":0,"ACTIDX":0}],"PROPS":[0,1]},{"NAME":"PWM out 4","DESC":"","TYPE":5,"GPIOS":[{"CHID":3,"OPT":3}],"PRMS":[{"PIDX":0,"ACTIDX":2}],"PROPS":[0,1]},{"NAME":"PWM out 5","DESC":"","TYPE":5,"GPIOS":[{"CHID":4,"OPT":3}],"PRMS":[{"PIDX":0,"ACTIDX":0}],"PROPS":[0,1]},{"NAME":"PWM out 6","DESC":"","TYPE":5,"GPIO":[{"CHID":5,"OPT":3}],"PRMS":[{"PIDX":0,"ACTIDX":0}],"PROPS":[0,1]}]}')
-    test_json_confs.push('{"NAME":"Relay board","DESC":"6pcs of HF32FA-G-005-HSL1 relays","VER":"1.0","PD":"2024.01.01","PROPS":[{"NAME":"Maximum rated current","VAL":"10A"},{"NAME":"Maximum rated voltage","VAL":"250VAC"}],"PINS":[{"NAME":"COM","NUM":1,"FDIDX":0},{"NAME":"NO","NUM":2,"FDIDX":0},{"NAME":"COM","NUM":3,"FDIDX":1},{"NAME":"NO","NUM":4,"FDIDX":1},{"NAME":"COM","NUM":5,"FDIDX":2},{"NAME":"NO","NUM":6,"FDIDX":2},{"NAME":"COM","NUM":7,"FDIDX":3},{"NAME":"NO","NUM":8,"FDIDX":3},{"NAME":"COM","NUM":9,"FDIDX":4},{"NAME":"NO","NUM":10,"FDIDX":4},{"NAME":"COM","NUM":11,"FDIDX":5},{"NAME":"NO","NUM":12,"FDIDX":5}],"FUNCS":[{"NAME":"Relay 1","DESC":"NO relay","TYPE":1,"GPIOS":[{"CHID":0,"OPT":1}],"PROPS":[0,1]},{"NAME":"Relay 2","DESC":"NO relay","TYPE":1,"GPIO":[{"CHID":1,"OPT":1}],"PROPS":[0,1]},{"NAME":"Relay 3","DESC":"NO relay","TYPE":1,"GPIO":[{"CHID":2,"OPT":1}],"PROPS":[0,1]},{"NAME":"Relay 4","DESC":"NO relay","TYPE":1,"GPIO":[{"CHID":3,"OPT":1}],"PROPS":[0,1]},{"NAME":"Relay 5","DESC":"NO relay","TYPE":1,"GPIO":[{"CHID":4,"OPT":1}],"PROPS":[0,1]},{"NAME":"Relay 6","DESC":"NO relay","TYPE":1,"GPIO":[{"CHID":5,"OPT":1}],"PROPS":[0,1]}]}')
+    # Get Tasmota GPIOs
+    var tasm_gpios = tasmota.cmd('GPIO')
+    test_json_confs.push('{"NAME":"High power PWM FET board","DESC":"6pcs high power FETs with current limiting","VER":"1.0","PD":"2024.01.01","PRMS":[{"NAME":"Current limit","VLIST":["0.5A","1A","2A","3A","5A"]}],"PROPS":[{"NAME":"Maximum output current","VAL":"5A"},{"NAME":"Maximum working voltage","VAL":"24V"}],"PINS":[{"NAME":"GND","NUM":1,"FIDX":0},{"NAME":"OUT","NUM":2,"FIDX":0},{"NAME":"GND","NUM":3,"FIDX":1},{"NAME":"OUT","NUM":4,"FIDX":1},{"NAME":"GND","NUM":5,"FIDX":2},{"NAME":"OUT","NUM":6,"FIDX":2},{"NAME":"GND","NUM":7,"FIDX":3},{"NAME":"OUT","NUM":8,"FIDX":3},{"NAME":"GND","NUM":9,"FIDX":4},{"NAME":"OUT","NUM":10,"FIDX":4},{"NAME":"GND","NUM":11,"FIDX":5},{"NAME":"OUT","NUM":12,"FIDX":5}],"FUNCS":[{"NAME":"PWM 1","DESC":"","TYPE":5,"GPIOS":[{"CHID":0,"OPT":3}],"PRMS":[{"PIDX":0,"ACTIDX":0}],"PROPS":[0,1]},{"NAME":"PWM 2","DESC":"","TYPE":5,"GPIOS":[{"CHID":1,"OPT":3}],"PRMS":[{"PIDX":0,"ACTIDX":1}],"PROPS":[0,1]},{"NAME":"PWM 3","DESC":"","TYPE":5,"GPIOS":[{"CHID":2,"OPT":3}],"PRMS":[{"PIDX":0,"ACTIDX":0}],"PROPS":[0,1]},{"NAME":"PWM 4","DESC":"","TYPE":5,"GPIOS":[{"CHID":3,"OPT":3}],"PRMS":[{"PIDX":0,"ACTIDX":2}],"PROPS":[0,1]},{"NAME":"PWM 5","DESC":"","TYPE":5,"GPIOS":[{"CHID":4,"OPT":3}],"PRMS":[{"PIDX":0,"ACTIDX":0}],"PROPS":[0,1]},{"NAME":"PWM 6","DESC":"","TYPE":5,"GPIOS":[{"CHID":5,"OPT":3}],"PRMS":[{"PIDX":0,"ACTIDX":0}],"PROPS":[0,1]}]}')
+    test_json_confs.push('{"NAME":"Relay board","DESC":"6pcs of HF32FA-G-005-HSL1 relays","VER":"1.0","PD":"2024.01.01","PROPS":[{"NAME":"Maximum rated current","VAL":"10A"},{"NAME":"Maximum rated voltage","VAL":"250VAC"}],"PINS":[{"NAME":"COM","NUM":1,"FIDX":0},{"NAME":"N.O.","NUM":2,"FIDX":0},{"NAME":"COM","NUM":3,"FIDX":1},{"NAME":"N.O.","NUM":4,"FIDX":1},{"NAME":"COM","NUM":5,"FIDX":2},{"NAME":"N.O.","NUM":6,"FIDX":2},{"NAME":"COM","NUM":7,"FIDX":3},{"NAME":"N.O.","NUM":8,"FIDX":3},{"NAME":"COM","NUM":9,"FIDX":4},{"NAME":"N.O.","NUM":10,"FIDX":4},{"NAME":"COM","NUM":11,"FIDX":5},{"NAME":"N.O.","NUM":12,"FIDX":5}],"FUNCS":[{"NAME":"Relay 1","DESC":"Normally open relay","TYPE":1,"GPIOS":[{"CHID":0,"OPT":1}],"PROPS":[0,1]},{"NAME":"Relay 2","DESC":"Normally open relay","TYPE":1,"GPIOS":[{"CHID":1,"OPT":1}],"PROPS":[0,1]},{"NAME":"Relay 3","DESC":"Normally open relay","TYPE":1,"GPIOS":[{"CHID":2,"OPT":1}],"PROPS":[0,1]},{"NAME":"Relay 4","DESC":"Normally open relay","TYPE":1,"GPIOS":[{"CHID":3,"OPT":1}],"PROPS":[0,1]},{"NAME":"Relay 5","DESC":"Normally open relay","TYPE":1,"GPIOS":[{"CHID":4,"OPT":1}],"PROPS":[0,1]},{"NAME":"Relay 6","DESC":"Normally open relay","TYPE":1,"GPIOS":[{"CHID":5,"OPT":1}],"PROPS":[0,1]}]}')
     test_json_confs.push('{"NAME":"Test board desc","DESC":"This is the descriptor","VER":"1.0","PD":"2024.01.01","PROPS":[{"NAME":"property 1","VAL":"value1"},{"NAME":"property 2","VAL":"value 2"}],"PRMS":[{"NAME":"Param1","VLIST":["val1","val2","val3"]},{"NAME":"Param2","VLIST":["val11","val22","val33"]}],"PINS":[{"NAME":"Pin1","NUM":1,"FDIDX":0},{"NAME":"Pin2","NUM":2,"FDIDX":1},{"NAME":"Pin3","NUM":3,"FDIDX":1},{"NAME":"Pin4","NUM":4,"FDIDX":1},{"NAME":"Pin7","NUM":7,"FDIDX":2},{"NAME":"Pin8","NUM":8,"FDIDX":2},{"NAME":"Pin10","NUM":10,"FDIDX":3},{"NAME":"Pin11","NUM":11,"FDIDX":3}],"FUNCS":[{"NAME":"Func1","DESC":"Func1 desc","TYPE":1,"GPIOS":[{"CHID":2,"OPT":1},{"CHID":3,"OPT":1}],"PROPS":[0],"PRMS":[{"PIDX":1,"ACTIDX":1}]},{"NAME":"Func2","DESC":"Func2 desc","TYPE":1,"GPIO":[{"CHID":4,"OPT":1}],"PROPS":[1]},{"NAME":"Func3","DESC":"Func3 desc","TYPE":1,"GPIO":[{"CHID":5,"OPT":1}],"PRMS":[{"PIDX":0,"ACTIDX":1},{"PIDX":1,"ACTIDX":2}]},{"NAME":"Func4","DESC":"Func4 desc","TYPE":1,"GPIO":[{"CHID":5,"OPT":1}],"PRMS":[{"PIDX":0,"ACTIDX":0}]}]}')
     test_json_confs.push('')
 
@@ -263,7 +281,7 @@ class Multicontroller
     var i2x_addr_list = wire1.scan()
     webserver.content_start("Multicontroller Configuration")
     webserver.content_send_style()
-    webserver.content_send('<style>table{width: 100%;border-collapse: collapse;}th, td{border: 1px solid gray;padding: 8px;text-align: left;}th{background-color: gray;}</style>')
+    webserver.content_send('<style>table{width: 100%;border-collapse: collapse;}th, td{border: 1px solid gray;padding: 8px;text-align: center;}th{background-color: gray;}</style>')
 
     for i2x_addr: i2x_addr_list
       # Find external board addresses
@@ -274,7 +292,7 @@ class Multicontroller
 
         # Display board information
         webserver.content_send('<p></p><p></p><fieldset><legend><b>Extension slot ' + str(ext_board_id + 1) + '</b></legend>')
-        self.show_ext_board_conf(ext_board_id, test_json_confs[ext_board_id])
+        self.show_ext_board_conf(tasm_gpios, ext_board_id, test_json_confs[ext_board_id])
         webserver.content_send('</fieldset>')
       end
     end
@@ -284,29 +302,21 @@ class Multicontroller
     webserver.content_stop()
   end
 
-  def page_mc_status_page()
-    webserver.content_start("Multicontroller Status")
-    webserver.content_send_style()
-    webserver.content_send("<p></p><button onclick='la(\"&m_toggle_conf=1\");'>Test Button</button>")
-    webserver.content_button(webserver.BUTTON_MAIN) #- button back to main page -#
-    webserver.content_stop()
-  end
-
   #- create a method for adding a button to the main menu -#
   def web_add_main_button()
-    webserver.content_send("<p></p><form action='/mc_status' method='post'><button>Multicontroller Status</button></form>")
+    webserver.content_send("<p></p><form action='/mc_conf' method='post'><button>Multicontroller</button></form>")
   end
 
   #- create a method for adding a button to the configuration menu-#
-  def web_add_config_button()
+  #def web_add_config_button()
     #- the onclick function "la" takes the function name and the respective value you want to send as an argument -#
-    webserver.content_send("<p></p><form action='/mc_conf' method='post'><button>Multicontroller Configuration</button></form>")
-  end
+ #   webserver.content_send("<p></p><form action='/mc_conf' method='post'><button>Multicontroller Configuration</button></form>")
+ # end
 
   #- As we can add only one sensor method we will have to combine them besides all other sensor readings in one method -#
   def web_sensor()
 
-    webserver.content_send("<p></p><button onclick='la(\"&m_toggle_conf=1\");'>Test Button</button>")
+#    webserver.content_send("<p></p><button onclick='la(\"&m_toggle_conf=1\");'>Test Button</button>")
 
     if webserver.has_arg("m_toggle_conf")
       print("m_toggle_conf")
@@ -321,10 +331,8 @@ class Multicontroller
   end
 
   def web_add_handler()
-    webserver.on("/mc_status", / -> self.page_mc_status_page())
     webserver.on("/mc_conf", / -> self.page_mc_conf_page())
-    print("'/mc_status' page added")
-    print("'/mc_conf' page added")
+    print("Multicontroller configuration page available at '/mc_conf'")
     end
 end
 
