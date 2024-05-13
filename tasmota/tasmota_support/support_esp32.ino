@@ -70,6 +70,15 @@ size_t getArduinoLoopTaskStackSize(void) {
 
 #include <nvs.h>
 
+bool NvmExists(const char *sNvsName) {
+  nvs_handle_t handle;
+  if (nvs_open(sNvsName, NVS_READONLY, &handle) != ESP_OK) {
+    return false;
+  }
+  nvs_close(handle);
+  return true;
+}
+
 bool NvmLoad(const char *sNvsName, const char *sName, void *pSettings, unsigned nSettingsLen) {
   nvs_handle_t handle;
   esp_err_t result = nvs_open(sNvsName, NVS_READONLY, &handle);
@@ -177,8 +186,12 @@ void QPCWrite(const void *pSettings, unsigned nSettingsLen) {
 }
 
 bool OtaFactoryRead(void) {
-  uint32_t pOtaLoader;
-  NvmLoad("otal", "otal", &pOtaLoader, sizeof(pOtaLoader));
+  uint32_t pOtaLoader = 0;
+  if (NvmExists("otal")) {
+    NvmLoad("otal", "otal", &pOtaLoader, sizeof(pOtaLoader));
+  } else {
+    OtaFactoryWrite(pOtaLoader);
+  }
   return pOtaLoader;
 }
 
@@ -576,7 +589,7 @@ extern "C" {
 // `psramFound()` can return true even if no PSRAM is actually installed
 // This new version also checks `esp_spiram_is_initialized` to know if the PSRAM is initialized
 bool FoundPSRAM(void) {
-#if CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6 || DISABLE_PSRAMCHECK
+#if CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6 || DISABLE_PSRAMCHECK || CORE32SOLO1
   return psramFound();
 #else
   return psramFound() && esp_psram_is_initialized();
