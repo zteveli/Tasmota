@@ -1,6 +1,32 @@
 import webserver
 import json
 
+# Class to collect information for printing a function cells for pin list table
+class FuncCell
+  var name
+  var span
+
+  def init(name)
+    if (name!= nil) self.name = name else self.name = '---' end
+    self.span = 1
+  end
+end
+
+# Init default pin name list
+class PinFuncInfo
+  var pin_names
+  var func_cell_list
+  var func_cell_idx
+  var last_func_idx
+
+  def init()
+    self.pin_names = []
+    self.func_cell_list = []
+    self.func_cell_idx = -1
+    self.last_func_idx = -2
+  end
+end
+
 class Multicontroller
 
   # ESP32 GPIOs and extension boards GPIOs channel assignment
@@ -8,6 +34,17 @@ class Multicontroller
                                  ['GPIO6', 'GPIO7', 'GPIO15', 'GPIO16', 'GPIO17', 'GPIO8'],    # Ext 2
                                  ['GPIO14', 'GPIO13', 'GPIO12', 'GPIO11', 'GPIO10', 'GPIO9'],  # Ext 3
                                  ['GPIO21', 'GPIO47', 'GPIO48', 'GPIO40', 'GPIO41', 'GPIO42']] # Ext 4
+
+  # Assignment of extension board GPIO channels and Tasmota GPIO positions in the template.
+  static ext_gpio_template_assignments = [[5 , 24, 25, 26, 27, 28],
+                                          [6 , 7 , 15, 16, 17, 8],
+                                          [14, 13, 12, 11, 10, 9],
+                                          [21, 36, 37, 29, 30, 31]]
+
+  static i2c_addr_2_ext_board_idx = {80 : 0, 81 : 2, 82 : 1, 83 : 3}
+
+  # Berry representation of Multicontroller's default Tasmota template for ESP32
+  static default_template = {"NAME":"MultiController","GPIO":[0,608,640,0,576,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,0,0,1,1,1,1,1,1,1,1,0,0,0,0,1,1],"FLAG":0,"BASE":1}
 
   static ext_gpiofunc_2_tasm_gpio_func = [
     224,  # GPIO_REL1
@@ -65,36 +102,52 @@ class Multicontroller
     webserver.content_send('</table></fieldset>')
   end
 
-  def show_board_conn_pinout(board_info, board_funcs)
-    # TODO Refactor it!
-    # Go through the pins (1..12), evaluate func_cell_list and pin_names (-> pin_cell_list) data for the pin (pin name and function cell as well).
-    # If a pin does not exist create FuncCell with '---' name.
-    # Following pin with the same function or no function adds +1 to 'span'
-    # FuncCell.pin_num_list, FuncCell.first_pin_num. and FuncCell.last_pin_num are not required at all pin_names[] is required.
-    # Class to collect information for printing a function cells for pin list table
-    class FuncCell
-      var name
-      var span
-      var pin_num_list
-      var first_pin_num
-      var last_pin_num
+  def handle_pind_and_function_cell(pfi, pin_name, func_name, pin_func_idx)
+    # Add pin name to pin cell list
+    pfi.pin_names.push(pin_name)
 
-      def init()
-        self.pin_num_list = []
-        self.span = 1
-        self.first_pin_num = 0
-        self.last_pin_num = 0
+    if (pfi.last_func_idx != pin_func_idx)
+      # Create new function cell
+      pfi.func_cell_list.push(FuncCell(func_name))
+      pfi.func_cell_idx += 1
+    else
+      # Increase span
+      pfi.func_cell_list[pfi.func_cell_idx].span += 1
+    end
+
+    # Update last pin function index
+    pfi.last_func_idx = pin_func_idx
+  end
+
+  def show_board_conn_pinout(board_info, board_funcs)
+    var pfi = PinFuncInfo()
+
+    # Iterate over all pins
+    for pin_idx : 0..11
+      # Find pin number in pin configuration
+      var found = false
+      for pin : board_info.find("PINS", [])
+        var pin_num = pin.find("NUM", nil)
+        var pin_func_idx = pin.find("FIDX", nil)
+        if (pin_num != nil)
+          # Check whether we have pin config for the current pin
+          if (pin_num == (pin_idx + 1))
+            # Find function name
+            var func_name = (board_funcs[pin_func_idx]).find('NAME')
+
+            # Evaluate function cell
+            self.handle_pind_and_function_cell(pfi, pin.find("NAME", '---'), func_name, pin_func_idx)
+            found = true
+            break
+          end
+        end
+      end
+      if (!found)
+        # Evaluate function cell
+        self.handle_pind_and_function_cell(pfi, '---', nil, -1)
       end
     end
-
-    # Collect functions
-    var func_cell_list = []
-    for func : board_funcs
-      var func_cell = FuncCell()
-      func_cell.name = func.find("NAME", '')
-      func_cell_list.push(func_cell)
-    end
-
+        
     webserver.content_send('<p></p><fieldset><legend><b>Board connector pinout</b></legend>')
     webserver.content_send('<p></p><table>')
     # Init table header
@@ -103,68 +156,17 @@ class Multicontroller
       webserver.content_send(format('<td>%i</td>', pin_num))
     end
 
-    # Init default pin name list
-    var pin_names = []
-    for idx : 0..11 pin_names.push('---') end
-
-    # Adjust pin name list
-    for pin : board_info.find("PINS", [])
-      var pin_num = pin.find("NUM", nil)
-      if (pin_num != nil)
-        pin_names[pin_num - 1] = pin.find("NAME", '---')
-
-        # Get function index
-        var pin_func_idx = pin.find("FIDX", nil)
-        if (pin_func_idx != nil)
-          var func_cell = func_cell_list[pin_func_idx]
-          func_cell.pin_num_list.push(pin_num)
-          if ((func_cell.first_pin_num == 0) || (pin_num < func_cell.first_pin_num))
-            func_cell.first_pin_num = pin_num
-          end
-          if ((func_cell.last_pin_num == 0) || (pin_num > func_cell.last_pin_num))
-            func_cell.last_pin_num = pin_num
-          end
-        end
-      end
-    end
-
     # Create table cells for pin names
     webserver.content_send('</tr><tr><th>Pin name</th>')
-    for pin_name : pin_names
+    for pin_name : pfi.pin_names
       webserver.content_send('<td>' + pin_name + '</td>')
     end
     webserver.content_send('</tr>')
 
-    # Determine function cell span
-    for fc : func_cell_list
-      fc.span = (fc.last_pin_num - fc.first_pin_num) + 1
-    end
-
-    # Add empty function cells if there ar unused pins
-    var idx = 0
-    while ((idx + 1) < func_cell_list.size())
-      var func_cell1 = func_cell_list[idx]
-      var func_cell2 = func_cell_list[idx + 1]
-      var pin_num_diff = func_cell2.first_pin_num - func_cell1.last_pin_num
-      if (pin_num_diff > 1)
-        var func_cell = FuncCell()
-        func_cell.name = '---'
-        func_cell.span = pin_num_diff - 1
-        func_cell_list.insert(idx + 1, func_cell)
-        idx += 2
-      else
-        idx += 1
-      end
-    end
-
     # Create table cells for function names
     webserver.content_send('<tr><th>Function</th>')
-    for func_cell : func_cell_list
-      if (func_cell.span > 1)
-        webserver.content_send('<td colspan="' + str(func_cell.span) + '">' + func_cell.name + '</td>')
-      else
-        webserver.content_send('<td>' + func_cell.name + '</td>')
-      end
+    for func_cell : pfi.func_cell_list
+      webserver.content_send('<td colspan="' + str(func_cell.span) + '">' + func_cell.name + '</td>')
     end
     webserver.content_send('</tr>')
 
@@ -250,7 +252,26 @@ class Multicontroller
     webserver.content_send('</tbody></table></fieldset>')
   end
 
+  def show_emplate(board_funcs)
+    var template = self.default_template
+
+    for func : board_funcs
+      for gpio : func.find('GPIOS', [])
+        var channel = gpio.find('CHID', nil)
+        var opt = gpio.find('OPT', nil)
+        var optidx = gpio.find('OPTIDX', nil)
+        if ((channel != nil) && (opt != nil) && (optidx != nil))
+        # TODO Continue here
+        end
+      end
+    end
+  end
+
   def show_board_conf(board_id, board_info, tasm_gpios, board_gpios)
+    print(board_id)
+    print(board_info)
+    print(tasm_gpios)
+    print(board_gpios)
     var board_funcs = board_info.find("FUNCS", [])
     # Show board header
     print('sbc1')
@@ -284,35 +305,41 @@ class Multicontroller
     var test_json_confs = []
     # Get Tasmota GPIOs
     var tasm_gpios = tasmota.cmd('GPIO')
-    test_json_confs.push('{"NAME":"Relay board","DESC":"6pcs of HF32FA-G-005-HSL1 relays","VER":"1.0","PD":"2024.01.01","PROPS":[{"NAME":"Maximum rated current","VAL":"10A"},{"NAME":"Maximum rated voltage","VAL":"250VAC"}],"PINS":[{"NAME":"COM","NUM":1,"FIDX":0},{"NAME":"N.O.","NUM":2,"FIDX":0},{"NAME":"COM","NUM":3,"FIDX":1},{"NAME":"N.O.","NUM":4,"FIDX":1},{"NAME":"COM","NUM":5,"FIDX":2},{"NAME":"N.O.","NUM":6,"FIDX":2},{"NAME":"COM","NUM":7,"FIDX":3},{"NAME":"N.O.","NUM":8,"FIDX":3},{"NAME":"COM","NUM":9,"FIDX":4},{"NAME":"N.O.","NUM":10,"FIDX":4},{"NAME":"COM","NUM":11,"FIDX":5},{"NAME":"N.O.","NUM":12,"FIDX":5}],"FUNCS":[{"NAME":"Relay 1","DESC":"Normally open relay","GPIOS":[{"CHID":0,"OPT":0,"OPTIDX":0}],"PROPS":[0,1]},{"NAME":"Relay 2","DESC":"Normally open relay","GPIOS":[{"CHID":1,"OPT":0,"OPTIDX":1}],"PROPS":[0,1]},{"NAME":"Relay 3","DESC":"Normally open relay","GPIOS":[{"CHID":2,"OPT":0,"OPTIDX":2}],"PROPS":[0,1]},{"NAME":"Relay 4","DESC":"Normally open relay","GPIOS":[{"CHID":3,"OPT":0,"OPTIDX":3}],"PROPS":[0,1]},{"NAME":"Relay 5","DESC":"Normally open relay","GPIOS":[{"CHID":4,"OPT":0,"OPTIDX":4}],"PROPS":[0,1]},{"NAME":"Relay 6","DESC":"Normally open relay","GPIOS":[{"CHID":5,"OPT":0,"OPTIDX":5}],"PROPS":[0,1]}]}')
-    test_json_confs.push('{"NAME":"Bistable relay board","DESC":"3pcs of HF3F-L-5-1HL1T relays","VER":"1.0","PD":"2024.01.01","PROPS":[{"NAME":"Maximum rated current","VAL":"10A"},{"NAME":"Maximum rated voltage","VAL":"250VAC"}],"PINS":[{"NAME":"C1","NUM":4,"FIDX":0},{"NAME":"COM","NUM":5,"FIDX":0},{"NAME":"C2","NUM":6,"FIDX":0},{"NAME":"C1","NUM":7,"FIDX":1},{"NAME":"COM","NUM":8,"FIDX":1},{"NAME":"C2","NUM":9,"FIDX":1},{"NAME":"C1","NUM":10,"FIDX":2},{"NAME":"COM","NUM":11,"FIDX":2},{"NAME":"C2","NUM":12,"FIDX":2}],"FUNCS":[{"NAME":"Relay 1","DESC":"Bistabil relay","GPIOS":[{"CHID":0,"OPT":1,"OPTIDX":0},{"CHID":1,"OPT":1,"OPTIDX":1}],"PROPS":[0,1]},{"NAME":"Relay 2","DESC":"Bistabil relay","GPIOS":[{"CHID":2,"OPT":1,"OPTIDX":2},{"CHID":3,"OPT":2,"OPTIDX":3}],"PROPS":[0,1]},{"NAME":"Relay 3","DESC":"Bistabil relay","GPIOS":[{"CHID":4,"OPT":1,"OPTIDX":4},{"CHID":5,"OPT":1,"OPTIDX":5}],"PROPS":[0,1]}]}')
-    test_json_confs.push('{"NAME":"High power PWM FET board","DESC":"6pcs high power FETs with current limiting","VER":"1.0","PD":"2024.01.01","PRMS":[{"NAME":"Current limit","VLIST":["0.5A","1A","2A","3A","5A"]}],"PROPS":[{"NAME":"Maximum output current","VAL":"5A"},{"NAME":"Maximum working voltage","VAL":"24V"}],"PINS":[{"NAME":"GND","NUM":1,"FIDX":0},{"NAME":"OUT","NUM":2,"FIDX":0},{"NAME":"GND","NUM":3,"FIDX":1},{"NAME":"OUT","NUM":4,"FIDX":1},{"NAME":"GND","NUM":5,"FIDX":2},{"NAME":"OUT","NUM":6,"FIDX":2},{"NAME":"GND","NUM":7,"FIDX":3},{"NAME":"OUT","NUM":8,"FIDX":3},{"NAME":"GND","NUM":9,"FIDX":4},{"NAME":"OUT","NUM":10,"FIDX":4},{"NAME":"GND","NUM":11,"FIDX":5},{"NAME":"OUT","NUM":12,"FIDX":5}],"FUNCS":[{"NAME":"PWM 1","DESC":"PWM Channel 1","GPIOS":[{"CHID":0,"OPT":2,"OPTIDX":0}],"PRMS":[{"PIDX":0,"ACTIDX":0}],"PROPS":[0,1]},{"NAME":"PWM 2","DESC":"PWM Channel 2","GPIOS":[{"CHID":1,"OPT":2,"OPTIDX":1}],"PRMS":[{"PIDX":0,"ACTIDX":1}],"PROPS":[0,1]},{"NAME":"PWM 3","DESC":"PWM Channel 3","GPIOS":[{"CHID":2,"OPT":2,"OPTIDX":2}],"PRMS":[{"PIDX":0,"ACTIDX":0}],"PROPS":[0,1]},{"NAME":"PWM 4","DESC":"PWM Channel 4","GPIOS":[{"CHID":3,"OPT":2,"OPTIDX":3}],"PRMS":[{"PIDX":0,"ACTIDX":2}],"PROPS":[0,1]},{"NAME":"PWM 5","DESC":"PWM Channel 5","GPIOS":[{"CHID":4,"OPT":2,"OPTIDX":4}],"PRMS":[{"PIDX":0,"ACTIDX":0}],"PROPS":[0,1]},{"NAME":"PWM 6","DESC":"PWM Channel 6","GPIOS":[{"CHID":5,"OPT":2,"OPTIDX":5}],"PRMS":[{"PIDX":0,"ACTIDX":0}],"PROPS":[0,1]}]}')
-    test_json_confs.push('')
-    test_json_confs.push('')
-    test_json_confs.push('')
+    test_json_confs.push('{"NAME":"Bistable relay board","DESC":"3pcs of HF3F-L-5-1HL1T relays","VER":"1.0","PD":"2024.01.01","PROPS":[{"NAME":"Maximum rated current","VAL":"10A"},{"NAME":"Maximum rated voltage","VAL":"250VAC"}],"PINS":[{"NAME":"C1","NUM":4,"FIDX":0},{"NAME":"COM","NUM":5,"FIDX":0},{"NAME":"C2","NUM":6,"FIDX":0},{"NAME":"C1","NUM":7,"FIDX":1},{"NAME":"COM","NUM":8,"FIDX":1},{"NAME":"C2","NUM":9,"FIDX":1},{"NAME":"C1","NUM":10,"FIDX":2},{"NAME":"COM","NUM":11,"FIDX":2},{"NAME":"C2","NUM":12,"FIDX":2}],"FUNCS":[{"NAME":"Relay 1","DESC":"Bistabil relay","GPIOS":[{"CHID":0,"OPT":1,"OPTIDX":0},{"CHID":1,"OPT":1,"OPTIDX":1}],"PROPS":[0,1]},{"NAME":"Relay 2","DESC":"Bistabil relay","GPIOS":[{"CHID":2,"OPT":1,"OPTIDX":2},{"CHID":3,"OPT":1,"OPTIDX":3}],"PROPS":[0,1]},{"NAME":"Relay 3","DESC":"Bistabil relay","GPIOS":[{"CHID":4,"OPT":1,"OPTIDX":4},{"CHID":5,"OPT":1,"OPTIDX":5}],"PROPS":[0,1]}]}')
+    test_json_confs.push('{}')
+    test_json_confs.push('{}')
+    test_json_confs.push('{}')
 
     # Scan I2C bus for device addresses
-    var i2x_addr_list = wire1.scan()
+    var i2c_addr_list = wire1.scan()
     webserver.content_start("Multicontroller Configuration")
     webserver.content_send_style()
     webserver.content_send('<style>table{width: 100%;border-collapse: collapse;}th, td{border: 1px solid gray;padding: 8px;text-align: center;}th{background-color: gray;}</style>')
 
-    for i2x_addr: i2x_addr_list
+    var found = false
+
+    for i2c_addr: i2c_addr_list
       # Find external board addresses
-      if (i2x_addr >= 80) && (i2x_addr <= 83)
-
-        # Calculate board ID
-        var ext_board_id = i2x_addr - 80
-
+      var ext_board_id = self.i2c_addr_2_ext_board_idx.find(i2c_addr, nil)
+      if (ext_board_id != nil)
         # Display board information
         webserver.content_send('<p></p><p></p><fieldset><legend><b>Extension slot ' + str(ext_board_id + 1) + '</b></legend>')
         self.show_ext_board_conf(tasm_gpios, ext_board_id, test_json_confs[ext_board_id])
         webserver.content_send('</fieldset>')
+        found = true
       end
     end
 
+    if (!found)
+      webserver.content_send('<p></p>No extension boards are connected!<p></p>')
+    else
+      # Show the template to be used
+      #self.show_emplate(board_funcs)
+    end
+
     webserver.content_send("<p></p><button onclick='la(\"&m_toggle_conf=1\");'>Test Button</button>")
-    webserver.content_button(webserver.BUTTON_CONFIGURATION) #- button back to configuration page -#
+    # Button back to main page
+    webserver.content_button(webserver.BUTTON_MAIN)
     webserver.content_stop()
   end
 
