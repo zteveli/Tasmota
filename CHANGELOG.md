@@ -3,7 +3,41 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - Development
 
-## [13.4.1.2]
+## [14.0.0.1]
+### Added
+- Enabled watchdog for ESP32 and variants (#21422)
+- Optional command ``WebRun`` (as WebQuery extension) (#21364)
+- Support for Knx dimmer and color (#21434)
+- Support for Matter 1.3 Water leak detectors (#21456)
+
+### Breaking Changed
+
+### Changed
+- ESP32 compiler option from `target-align` to `no-target-align` (#21407)
+- On universal display remove default backlight power if a PWM channel is used for backlight
+- Berry binary compiled with gcc (#21426)
+- GPIOViewer from v1.5.2 to v1.5.3 (No functional change)
+- ESP32 I2S audio improvements (#21433)
+
+### Fixed
+- Domoticz re-subscribe on MQTT reconnect. Regression from v13.4.0.3 (#21281)
+- Watchdog restart or freeze if ``displaytext`` is more than 128 characters (#21401)
+- Avoid connection errors when switching to safeboot to upload OTA firmware (#21428)
+- Berry Leds matrix alternate more and error about 'bri' attribute (#21431)
+- Wrong timeout in `WebQuery` and `webclient` since Core3 (#21442)
+- Webradio crash with invalid url (#21446)
+- Zigbee crash when removing `ZbName` (#21449)
+- ESP32 BLE fix scanning (#21451)
+
+### Removed
+- Support of old insecure fingerprint algorithm. Deprecated since v8.4.0 (#21417)
+
+## [Released]
+
+## [14.0.0] 20240515
+- Release Rodney
+
+## [13.4.1.2] 20240515
 ### Added
 - ESP32 esp32_partition_app3904k_fs3392k partition scheme for 8MB ESP32S3 (#21241)
 - TCP Serial bridge GPIO type `TCP Tx En` (#21269)
@@ -37,6 +71,8 @@ All notable changes to this project will be documented in this file.
 - TLS Letsencrypt replace R3 CA with long-term ISRG_Root_X1 CA, which works with R3 and R10-R14 (#21352)
 - GPIOViewer from v1.5.0 to v1.5.2
 - ESP32 Core3 platform update from 2024.05.10 to 2024.05.11 (#21381)
+- Berry `Leds` uses native WS2812 driver by default (#21406)
+- Command ``Pixels`` initiates a restart before activation due to changed NeoPixelBus library (#21406)
 
 ### Fixed
 - HASPmota `align` attribute and expand PNG cache (#21228)
@@ -53,7 +89,7 @@ All notable changes to this project will be documented in this file.
 - Avoid unwanted OTA upgrade when safeboot starts for the first time (#21360)
 - Matter broken NOCStruct types preventing pairing with HA (#21365)
 - jpeg compile core3 (#21387)
-- Berry `gpio.dac_voltage()`
+- Berry `gpio.dac_voltage()` (#21403)
 
 ### Removed
 - LVGL disabled vector graphics (#21242)
@@ -198,8 +234,6 @@ All notable changes to this project will be documented in this file.
 - Shutter inverted using internal commands (#20752)
 - HASPmota PSRAM memory leak (#20818)
 - Berry Memory leak in `import re` (#20823)
-
-## [Released]
 
 ## [13.4.0] 20240214
 - Release Quinta
