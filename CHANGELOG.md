@@ -3,21 +3,130 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - Development
 
-## [14.0.0.1]
+## [14.1.0.3]
+### Added
+- ESP32 support for power and energy limit checks, like ``MaxEnergy2`` per phase (#21695)
+
+### Breaking Changed
+
+### Changed
+- ESP32 support for energy margin checks, like ``MaxPower2`` per phase (#21695)
+
+### Fixed
+
+### Removed
+
+## [14.1.0.2] 20240627
+### Added
+- Support for Sonoff WTS01 temperature sensor using SerialBridge in ``SSerialMode 3``
+- Berry `classof` extended to class methods (#21615)
+- Extend command ``SetOption147 1`` to disable publish of IRReceived MQTT messages (#21574)
+- Matter support for Rain sensor (#21633)
+- Matter internal debug option (#21634)
+- Matter Fan support (virtual only) (#21637)
+- Matter show event name in logs (#21649)
+- Matter full support of events (#21698)
+
+### Changed
+- SerialBridge command ``SSerialSend9`` replaced by ``SSerialMode``
+- SML replace vars in descriptor and line (#21622)
+- NeoPool using temperature as only frequently changing value for NPTeleperiod (#21628)
+- NeoPool make compiler setting available by `user_config_override.h` (#21645)
+- ESP32 MI32 improve parser (#21648)
+- ESP8266 platform update from 2024.01.01 to 2024.06.00 (#21668)
+- ESP8266 Framework (Arduino Core) from v2.7.6 to v2.7.7 (#21668)
+- Matter refactor reading of multiple attributes to reduce memory pressure (#21675)
+- ESP32 platform update from 2024.06.10 to 2024.06.11 (#21694)
+- ESP32 Framework (Arduino Core) from v3.0.1 to v3.0.2 (#21694)
+
+### Fixed
+- Matter interverted attributes 0xFFF9 and 0xFFFB (#21636)
+- Matter CASE Sigma1 resumption mode for faster reconnection (#21644)
+- Shutter MQTT on inverted shutter (#21663)
+- Scripter TCP server (#21660)
+- Matter TLV.U8 unsigned encoding (#21672)
+- Matter resumption final ack (#21673)
+- ESP32 allow use of UART0 with enabled USB_CDC_CONSOLE (#21496)
+
+## [14.1.0.1] 20240611
+### Added
+- Berry solidification of `bytes` instances (#21558)
+- Matter support for Air Quality sensors (#21559)
+- Matter support for bridged Air Quality (#21597)
+- HASPmota rounds to nearest int values passed as 'real' (#21599)
+- Berry automatic rounding of float to int when calling C mapped functions (#21601)
+- Berry add `math.round` (#21602)
+- Support for QMP6988 temperature and pressure sensor
+
+### Changed
+- Matter refactoring of bridged devices (#21575)
+- ESP32 Core3 platform update from 2024.05.13 to 2024.06.10 (#21569)
+- Optional MQTT_TELE_RETAIN to Energy Margins message replaced by ``SensorRetain``
+- Matter filter suffix automatically added for sensors (#21589)
+- Display timing splash screen with display modes 1 to 5
+- ESP32 MI32 refactoring, bugfixes, generic device scanning (#21603)
+- Allow receive or send using SerialBridge
+
+### Fixed
+- Berry `input()` returns empty string and does not crash (#21565)
+
+## [Released]
+
+## [14.1.0] 20240603
+- Release Rachel
+
+## [14.0.0.4] 20240603
+### Added
+- SML FastExit for binary SML parsing (#21497)
+
+### Changed
+- GPIOViewer from v1.5.3 to v1.5.4 (No functional change)
+- TCP bridge increased baudrate selection (#21528)
+- Berry coc parser keeps order of variables (#21542)
+
+### Fixed
+- uDisplay Parallel display on Core3 (#21529)
+- LVGL exception when using tjpegd (#21544)
+
+### Removed
+- Deprecated code from drivers, `USE_TTGO_WATCH` and `USE_M5STACK_CORE2` (#21533)
+
+## [14.0.0.3] 20240530
+### Changed
+- ESP32 Core3 platform update from 2024.05.12 to 2024.05.13 (#21524)
+
+### Fixed
+- ESP32 slow response when using UDP as in emulation (#21470)
+
+## [14.0.0.2] 20240529
+### Added
+- Disabled watchdog for ESP32 and variants (#21509)
+
+### Changed
+- Update Telegram CA (Go Daddy Root Certificate Authority - G2)
+
+### Fixed
+- Telegram TLS fingerprint, remove CA validation (#21514)
+- ESP32 I2S multiple fixes (#21511)
+
+## [14.0.0.1] 20240527
 ### Added
 - Enabled watchdog for ESP32 and variants (#21422)
 - Optional command ``WebRun`` (as WebQuery extension) (#21364)
 - Support for Knx dimmer and color (#21434)
 - Support for Matter 1.3 Water leak detectors (#21456)
-
-### Breaking Changed
+- Berry add reuse of methods for interface-like code reuse (#21500)
 
 ### Changed
 - ESP32 compiler option from `target-align` to `no-target-align` (#21407)
 - On universal display remove default backlight power if a PWM channel is used for backlight
 - Berry binary compiled with gcc (#21426)
 - GPIOViewer from v1.5.2 to v1.5.3 (No functional change)
+- Berry allow easy solidification of external Berry (#21430)
 - ESP32 I2S audio improvements (#21433)
+- Support W5500 SPI ethernet using four SPI GPIOs only without IRQ and RESET
+- Berry change internal storage of parent class for methods (#21490)
+- ESP32 Core3 platform update from 2024.05.11 to 2024.05.12 (#21493)
 
 ### Fixed
 - Domoticz re-subscribe on MQTT reconnect. Regression from v13.4.0.3 (#21281)
@@ -28,11 +137,14 @@ All notable changes to this project will be documented in this file.
 - Webradio crash with invalid url (#21446)
 - Zigbee crash when removing `ZbName` (#21449)
 - ESP32 BLE fix scanning (#21451)
+- I2S APLL not supported on all SOCs (#21483)
+- UfsServe watchdog on large folder (#21486)
+- Matter auto-fix IPv6 link-local zone id when network reconnects (#21494)
+- SML compile error when median-filter is disabled (#21495)
+- Hydreon RG15 malformed JSON string (#21508)
 
 ### Removed
 - Support of old insecure fingerprint algorithm. Deprecated since v8.4.0 (#21417)
-
-## [Released]
 
 ## [14.0.0] 20240515
 - Release Rodney

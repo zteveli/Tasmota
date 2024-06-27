@@ -197,6 +197,7 @@ public:
   // Tx
   virtual bool begin(void) { return beginTx(); };   // the name `begin()`is inherited from superclass, prefer `beginTx()` which is more explicit
   virtual bool stop(void) { return stopTx(); };     // the name `stop()`is inherited from superclass, prefer `stopTx()` which is more explicit
+  virtual void flush(void);                         // makes sure that all stored DMA samples are consumed / played to prevent static noise after stop()
   bool beginTx(void);
   bool stopTx(void);
   bool ConsumeSample(int16_t sample[2]);
@@ -322,6 +323,11 @@ bool TasmotaI2S::beginTx(void) {
   } else
 #endif // SOC_DAC_SUPPORTED
   {
+    uint8_t zero_buffer[240] = {0};
+    size_t sz;
+    for(int i = 0;i < 6;i++){
+      i2s_channel_preload_data(_tx_handle, zero_buffer, sizeof(zero_buffer), &sz); // preload DMA buffer with silence
+    }
     err = i2s_channel_enable(_tx_handle);
   }
   AddLog(LOG_LEVEL_INFO, "I2S: Tx i2s_channel_enable err=0x%04X", err);
@@ -361,6 +367,20 @@ bool TasmotaI2S::stopTx() {
     AddLog(LOG_LEVEL_INFO, "I2S: stop: I2S channel disabled");
   }
   return true;
+}
+
+void TasmotaI2S::flush()
+{
+    int buffersize = 6 * 240;
+    int16_t samples[2] = {0x0, 0x0};
+    for (int i = 0; i < buffersize; i++)
+    {
+      while (!ConsumeSample(samples))
+      {
+        delay(1);
+      }
+    }
+    AddLog(LOG_LEVEL_INFO, "I2S: flush DMA TX buffer");
 }
 
 bool TasmotaI2S::delTxHandle(void) {
@@ -669,9 +689,11 @@ bool TasmotaI2S::startI2SChannel(bool tx, bool rx) {
               },
             },
           };
+#if SOC_I2S_SUPPORTS_APLL
           if(audio_i2s.Settings->rx.apll == 1){
               rx_std_cfg.clk_cfg.clk_src = I2S_CLK_SRC_APLL;
           }
+#endif //SOC_I2S_SUPPORTS_APLL
           err = i2s_channel_init_std_mode(_rx_handle, &rx_std_cfg);
           AddLog(LOG_LEVEL_DEBUG, "I2S: RX i2s_channel_init_std_mode with err:%i", err);
           AddLog(LOG_LEVEL_DEBUG, "I2S: RX channel in standard mode with %u bit width on %i channel(s) initialized", bps, rx_slot_mode);

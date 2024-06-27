@@ -646,7 +646,7 @@ int32_t HexToBytes(const char* hex, uint8_t* out, size_t out_len) {
   }
 
   size_t bytes_out = len / 2;
-  if (bytes_out < out_len) {
+  if (bytes_out > out_len) {
     bytes_out = out_len;
   }
   
@@ -2138,7 +2138,9 @@ void ClaimSerial(void) {
 #ifdef ESP32
 #if CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
 #ifdef USE_USB_CDC_CONSOLE
-  return;              // USB console does not use serial
+  if (!tasconsole_serial) {
+    return;              // USB console does not use serial
+  }
 #endif  // USE_USB_CDC_CONSOLE
 #endif  // ESP32C3/C6, S2 or S3
 #endif  // ESP32
@@ -2705,6 +2707,10 @@ String HtmlEscape(const String unescaped) {
     }
   }
   return result;
+}
+
+String SettingsTextEscaped(uint32_t index) {
+  return HtmlEscape(SettingsText(index));
 }
 
 String UrlEscape(const char *unescaped) {
