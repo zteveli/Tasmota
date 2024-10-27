@@ -87,9 +87,6 @@
 #define D_DEBUG "Depanare"
 #define D_DEWPOINT "Punct de rouă"
 #define D_DISABLED "Dezactivat"
-#define D_MOVING_DISTANCE "Moving Distance"
-#define D_STATIC_DISTANCE "Static Distance"
-#define D_DETECT_DISTANCE "Detect Distance"
 #define D_DISTANCE "Distanță"
 #define D_DNS_SERVER "Server DNS"
 #define D_DO "Disolved Oxygen"
@@ -572,6 +569,14 @@
 #define D_THERMOSTAT_PI_HYBRID        "PI (Hybrid)"
 #define D_THERMOSTAT_AUTOTUNE_HYBRID  "Autotune (Hybrid)"
 
+// xdrv_79_esp32_ble.ino
+#define D_CONFIGURE_BLE "Configure BLE"
+#define D_BLE_PARAMETERS "Bluetooth Settings"
+#define D_MQTT_BLE_ENABLE "Enable Bluetooth"
+#define D_MQTT_BLE_ACTIVESCAN "Enable Active Scan(*)"
+#define D_BLE_DEVICES "Devices Seen"
+#define D_BLE_REMARK "items marked (*) are not stored in config"
+
 // xsns_05_ds18b20.ino
 #define D_SENSOR_BUSY "Senzor ocupat"
 #define D_SENSOR_CRC_ERROR "Eroare senzor CRC"
@@ -769,6 +774,8 @@
 #define D_SENSOR_WE517_RX      "WE517 Rx"
 #define D_SENSOR_LD2410_TX     "LD2410 Tx"
 #define D_SENSOR_LD2410_RX     "LD2410 Rx"
+#define D_SENSOR_LD2410S_TX     "LD2410S Tx"
+#define D_SENSOR_LD2410S_RX     "LD2410S Rx"
 #define D_GPIO_TM1621_CS       "TM1621 CS"
 #define D_GPIO_TM1621_WR       "TM1621 WR"
 #define D_GPIO_TM1621_RD       "TM1621 RD"
@@ -825,6 +832,7 @@
 #define D_SENSOR_CSE7761_RX    "CSE7761 Rx"
 #define D_SENSOR_CSE7766_TX    "CSE7766 Tx"
 #define D_SENSOR_CSE7766_RX    "CSE7766 Rx"
+#define D_SENSOR_BL0906_RX     "BL0906 Rx"
 #define D_SENSOR_BL0939_RX     "BL0939 Rx"
 #define D_SENSOR_BL0942_RX     "BL0942 Rx"
 #define D_SENSOR_HM330X_SET    "HM330X SET"
@@ -913,6 +921,8 @@
 #define D_SENSOR_ADC_JOYSTICK  "ADC Joystick"
 #define D_SENSOR_ADC_PH        "ADC pH"
 #define D_SENSOR_ADC_MQ        "ADC MQ"
+#define D_SENSOR_ADC_VOLTAGE   "ADC Voltage"
+#define D_SENSOR_ADC_CURRENT   "ADC Current"
 #define D_GPIO_WEBCAM_PWDN     "CAM_PWDN"
 #define D_GPIO_WEBCAM_RESET    "CAM_RESET"
 #define D_GPIO_WEBCAM_XCLK     "CAM_XCLK"
@@ -999,7 +1009,8 @@
 #define D_SENSOR_BIOPDU_PZEM016_RX "BioPDU PZEM016 Rx"
 #define D_SENSOR_BIOPDU_BIT    "BioPDU Bit"
 #define D_SENSOR_LOX_O2_RX     "LoxO2 RX"
-#define D_GPIO_MAGIC_SWITCH "MagicSwitch"
+#define D_GPIO_MAGIC_SWITCH    "MagicSwitch"
+#define D_SENSOR_WOOLIIS_RX    "Wooliis Rx"
 
 // Units
 #define D_UNIT_AMPERE "A"
@@ -1268,5 +1279,20 @@
 // ixrv92_pipsolar.ino
 #define D_SENSOR_PIPSOLAR_TX             "Pipsolar TX"
 #define D_SENSOR_PIPSOLAR_RX             "Pipsolar RX"
+
+// xsns_102_ld2410.ino
+#define D_MOVING_DISTANCE "Moving Distance"
+#define D_STATIC_DISTANCE "Static Distance"
+#define D_DETECT_DISTANCE "Detect Distance"
+#define D_MOVING_ENERGY_T "Moving target"
+#define D_STATIC_ENERGY_T "Static target"
+#define D_LD2410_PIN_STATE "Output pin state"
+#define D_LD2410_LIGHT "Light sensor"
+
+// xsns_115_wooliis.ino
+#define D_IMPORT                          "Import"
+#define D_EXPORT                          "Export"
+#define D_CHARGING                        "Charging"
+#define D_CAPACITY                        "Capacity"
 
 #endif  // _LANGUAGE_RO_RO_H_

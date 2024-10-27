@@ -1208,9 +1208,9 @@ void SettingsDefaultSet2(void) {
 //  Settings->energy_max_power_limit = 0;                            // MaxPowerLimit
   Settings->energy_max_power_limit_hold = MAX_POWER_HOLD;
   Settings->energy_max_power_limit_window = MAX_POWER_WINDOW;
-//  Settings->energy_max_power_safe_limit = 0;                       // MaxSafePowerLimit
-  Settings->energy_max_power_safe_limit_hold = SAFE_POWER_HOLD;
-  Settings->energy_max_power_safe_limit_window = SAFE_POWER_WINDOW;
+//  Settings->ex_energy_max_power_safe_limit = 0;                    // MaxSafePowerLimit
+//  Settings->ex_energy_max_power_safe_limit_hold = SAFE_POWER_HOLD;
+//  Settings->ex_energy_max_power_safe_limit_window = SAFE_POWER_WINDOW;
 //  Settings->energy_max_energy = 0;                                 // MaxEnergy
 //  Settings->energy_max_energy_start = 0;                           // MaxEnergyStart
 //  Settings->energy_kWhtotal_ph[0] = 0;
@@ -1726,12 +1726,19 @@ void SettingsDelta(void) {
     if (Settings->version < 0x0A010003) {  // 10.1.0.3
       Settings->sserial_config = Settings->serial_config;
     }
+
+    // Change CalVer (2022.01.1-4 = 0x14160101) to SemVer (10.1.0.4-7 = 0x0A010004)
+    uint32_t version2022 = Settings->version & 0x00FF0000;
+    if (0x00160000 == version2022) {       // Version x.22.x.x is not likely to appear
+      Settings->version = 0x0A010005;      // Choose this as 0x0A010006 has a change following
+    }
+
     if (Settings->version < 0x0A010006) {  // 10.1.0.6
       Settings->web_time_start = 0;
       Settings->web_time_end = 0;
     }
     if (Settings->version < 0x0B000003) {  // 11.0.0.3
-       memcpy(Settings->pulse_timer, Settings->ex_pulse_timer, 16);
+       memcpy(Settings->pulse_timer, (uint16_t*)&Settings->weight_precision, 16);
     }
     if (Settings->version < 0x0B000006) {  // 11.0.0.6
         Settings->weight_absconv_a = 0;
@@ -1821,6 +1828,15 @@ void SettingsDelta(void) {
     }
     if (Settings->version < 0x0E010002) {  // 14.1.0.2
       Settings->sserial_mode = Settings->sbflag1.ex_serbridge_console;
+    }
+    if (Settings->version < 0x0E020003) {  // 14.2.0.3
+      Settings->flag3.sb_receive_invert = 0;  // SetOption69  - (Serial) Invert Serial receive on SerialBridge
+    }
+    if (Settings->version < 0x0E020004) {  // 14.2.0.4
+      Settings->weight_precision = 0;      // Initialized by HX711 driver
+    }
+    if (Settings->version < 0x0E030002) {  // 14.3.0.2
+      Settings->sbflag1.dali_light = 1;
     }
 
     Settings->version = TASMOTA_VERSION;

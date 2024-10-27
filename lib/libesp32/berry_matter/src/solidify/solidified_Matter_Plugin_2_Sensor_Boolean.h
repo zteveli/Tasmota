@@ -3,132 +3,48 @@
 * Generated code, don't edit                                         *
 \********************************************************************/
 #include "be_constobj.h"
+// compact class 'Matter_Plugin_Sensor_Boolean' ktab size: 21, total: 32 (saved 88 bytes)
+static const bvalue be_ktab_class_Matter_Plugin_Sensor_Boolean[21] = {
+  /* K0   */  be_nested_str_weak(update_shadow),
+  /* K1   */  be_nested_str_weak(VIRTUAL),
+  /* K2   */  be_nested_str_weak(Switch),
+  /* K3   */  be_nested_str_weak(tasmota_switch_index),
+  /* K4   */  be_nested_str_weak(tasmota),
+  /* K5   */  be_nested_str_weak(cmd),
+  /* K6   */  be_nested_str_weak(Status_X2010),
+  /* K7   */  be_nested_str_weak(find),
+  /* K8   */  be_nested_str_weak(StatusSNS),
+  /* K9   */  be_nested_str_weak(contains),
+  /* K10  */  be_nested_str_weak(ON),
+  /* K11  */  be_nested_str_weak(shadow_bool_value),
+  /* K12  */  be_nested_str_weak(value_updated),
+  /* K13  */  be_nested_str_weak(init),
+  /* K14  */  be_nested_str_weak(parse_configuration),
+  /* K15  */  be_nested_str_weak(ARG),
+  /* K16  */  be_const_int(1),
+  /* K17  */  be_const_int(0),
+  /* K18  */  be_nested_str_weak(_parse_update_virtual),
+  /* K19  */  be_nested_str_weak(JSON_NAME),
+  /* K20  */  be_nested_str_weak(update_virtual),
+};
+
 
 extern const bclass be_class_Matter_Plugin_Sensor_Boolean;
-
-/********************************************************************
-** Solidified function: parse_configuration
-********************************************************************/
-extern const bclass be_class_Matter_Plugin_Sensor_Boolean;
-be_local_closure(class_Matter_Plugin_Sensor_Boolean_parse_configuration,   /* name */
-  be_nested_proto(
-    7,                          /* nstack */
-    2,                          /* argc */
-    2,                          /* varg */
-    0,                          /* has upvals */
-    NULL,                       /* no upvals */
-    0,                          /* has sup protos */
-    &be_class_Matter_Plugin_Sensor_Boolean, 
-    1,                          /* has constants */
-    ( &(const bvalue[ 5]) {     /* constants */
-    /* K0   */  be_nested_str_weak(tasmota_switch_index),
-    /* K1   */  be_nested_str_weak(find),
-    /* K2   */  be_nested_str_weak(ARG),
-    /* K3   */  be_const_int(1),
-    /* K4   */  be_const_int(0),
-    }),
-    be_str_weak(parse_configuration),
-    &be_const_str_solidified,
-    ( &(const binstruction[12]) {  /* code */
-      0x60080009,  //  0000  GETGBL	R2	G9
-      0x8C0C0301,  //  0001  GETMET	R3	R1	K1
-      0x88140102,  //  0002  GETMBR	R5	R0	K2
-      0x58180003,  //  0003  LDCONST	R6	K3
-      0x7C0C0600,  //  0004  CALL	R3	3
-      0x7C080200,  //  0005  CALL	R2	1
-      0x90020002,  //  0006  SETMBR	R0	K0	R2
-      0x88080100,  //  0007  GETMBR	R2	R0	K0
-      0x18080504,  //  0008  LE	R2	R2	K4
-      0x780A0000,  //  0009  JMPF	R2	#000B
-      0x90020103,  //  000A  SETMBR	R0	K0	K3
-      0x80000000,  //  000B  RET	0
-    })
-  )
-);
-/*******************************************************************/
-
-
-/********************************************************************
-** Solidified function: value_updated
-********************************************************************/
-extern const bclass be_class_Matter_Plugin_Sensor_Boolean;
-be_local_closure(class_Matter_Plugin_Sensor_Boolean_value_updated,   /* name */
-  be_nested_proto(
-    1,                          /* nstack */
-    1,                          /* argc */
-    2,                          /* varg */
-    0,                          /* has upvals */
-    NULL,                       /* no upvals */
-    0,                          /* has sup protos */
-    &be_class_Matter_Plugin_Sensor_Boolean, 
-    0,                          /* has constants */
-    NULL,                       /* no const */
-    be_str_weak(value_updated),
-    &be_const_str_solidified,
-    ( &(const binstruction[ 1]) {  /* code */
-      0x80000000,  //  0000  RET	0
-    })
-  )
-);
-/*******************************************************************/
-
-
-/********************************************************************
-** Solidified function: <lambda>
-********************************************************************/
-be_local_closure(class_Matter_Plugin_Sensor_Boolean__X3Clambda_X3E,   /* name */
-  be_nested_proto(
-    3,                          /* nstack */
-    1,                          /* argc */
-    0,                          /* varg */
-    0,                          /* has upvals */
-    NULL,                       /* no upvals */
-    0,                          /* has sup protos */
-    NULL, 
-    0,                          /* has constants */
-    NULL,                       /* no const */
-    be_str_weak(_X3Clambda_X3E),
-    &be_const_str_solidified,
-    ( &(const binstruction[ 4]) {  /* code */
-      0x60040009,  //  0000  GETGBL	R1	G9
-      0x5C080000,  //  0001  MOVE	R2	R0
-      0x7C040200,  //  0002  CALL	R1	1
-      0x80040200,  //  0003  RET	1	R1
-    })
-  )
-);
-/*******************************************************************/
-
 
 /********************************************************************
 ** Solidified function: update_shadow
 ********************************************************************/
-extern const bclass be_class_Matter_Plugin_Sensor_Boolean;
 be_local_closure(class_Matter_Plugin_Sensor_Boolean_update_shadow,   /* name */
   be_nested_proto(
     6,                          /* nstack */
     1,                          /* argc */
-    2,                          /* varg */
+    10,                          /* varg */
     0,                          /* has upvals */
     NULL,                       /* no upvals */
     0,                          /* has sup protos */
-    &be_class_Matter_Plugin_Sensor_Boolean, 
+    NULL,                       /* no sub protos */
     1,                          /* has constants */
-    ( &(const bvalue[13]) {     /* constants */
-    /* K0   */  be_nested_str_weak(update_shadow),
-    /* K1   */  be_nested_str_weak(VIRTUAL),
-    /* K2   */  be_nested_str_weak(Switch),
-    /* K3   */  be_nested_str_weak(tasmota_switch_index),
-    /* K4   */  be_nested_str_weak(tasmota),
-    /* K5   */  be_nested_str_weak(cmd),
-    /* K6   */  be_nested_str_weak(Status_X2010),
-    /* K7   */  be_nested_str_weak(find),
-    /* K8   */  be_nested_str_weak(StatusSNS),
-    /* K9   */  be_nested_str_weak(contains),
-    /* K10  */  be_nested_str_weak(ON),
-    /* K11  */  be_nested_str_weak(shadow_bool_value),
-    /* K12  */  be_nested_str_weak(value_updated),
-    }),
+    &be_ktab_class_Matter_Plugin_Sensor_Boolean,     /* shared constants */
     be_str_weak(update_shadow),
     &be_const_str_solidified,
     ( &(const binstruction[41]) {  /* code */
@@ -180,37 +96,166 @@ be_local_closure(class_Matter_Plugin_Sensor_Boolean_update_shadow,   /* name */
 
 
 /********************************************************************
+** Solidified function: value_updated
+********************************************************************/
+be_local_closure(class_Matter_Plugin_Sensor_Boolean_value_updated,   /* name */
+  be_nested_proto(
+    1,                          /* nstack */
+    1,                          /* argc */
+    10,                          /* varg */
+    0,                          /* has upvals */
+    NULL,                       /* no upvals */
+    0,                          /* has sup protos */
+    NULL,                       /* no sub protos */
+    1,                          /* has constants */
+    &be_ktab_class_Matter_Plugin_Sensor_Boolean,     /* shared constants */
+    be_str_weak(value_updated),
+    &be_const_str_solidified,
+    ( &(const binstruction[ 1]) {  /* code */
+      0x80000000,  //  0000  RET	0
+    })
+  )
+);
+/*******************************************************************/
+
+
+/********************************************************************
 ** Solidified function: init
 ********************************************************************/
-extern const bclass be_class_Matter_Plugin_Sensor_Boolean;
 be_local_closure(class_Matter_Plugin_Sensor_Boolean_init,   /* name */
   be_nested_proto(
     9,                          /* nstack */
     4,                          /* argc */
-    2,                          /* varg */
+    10,                          /* varg */
     0,                          /* has upvals */
     NULL,                       /* no upvals */
     0,                          /* has sup protos */
-    &be_class_Matter_Plugin_Sensor_Boolean, 
+    NULL,                       /* no sub protos */
     1,                          /* has constants */
-    ( &(const bvalue[ 2]) {     /* constants */
-    /* K0   */  be_nested_str_weak(init),
-    /* K1   */  be_nested_str_weak(shadow_bool_value),
-    }),
+    &be_ktab_class_Matter_Plugin_Sensor_Boolean,     /* shared constants */
     be_str_weak(init),
     &be_const_str_solidified,
     ( &(const binstruction[11]) {  /* code */
       0x60100003,  //  0000  GETGBL	R4	G3
       0x5C140000,  //  0001  MOVE	R5	R0
       0x7C100200,  //  0002  CALL	R4	1
-      0x8C100900,  //  0003  GETMET	R4	R4	K0
+      0x8C10090D,  //  0003  GETMET	R4	R4	K13
       0x5C180200,  //  0004  MOVE	R6	R1
       0x5C1C0400,  //  0005  MOVE	R7	R2
       0x5C200600,  //  0006  MOVE	R8	R3
       0x7C100800,  //  0007  CALL	R4	4
       0x50100000,  //  0008  LDBOOL	R4	0	0
-      0x90020204,  //  0009  SETMBR	R0	K1	R4
+      0x90021604,  //  0009  SETMBR	R0	K11	R4
       0x80000000,  //  000A  RET	0
+    })
+  )
+);
+/*******************************************************************/
+
+
+/********************************************************************
+** Solidified function: <lambda>
+********************************************************************/
+be_local_closure(class_Matter_Plugin_Sensor_Boolean__X3Clambda_X3E,   /* name */
+  be_nested_proto(
+    3,                          /* nstack */
+    1,                          /* argc */
+    8,                          /* varg */
+    0,                          /* has upvals */
+    NULL,                       /* no upvals */
+    0,                          /* has sup protos */
+    NULL,                       /* no sub protos */
+    1,                          /* has constants */
+    &be_ktab_class_Matter_Plugin_Sensor_Boolean,     /* shared constants */
+    be_str_weak(_X3Clambda_X3E),
+    &be_const_str_solidified,
+    ( &(const binstruction[ 4]) {  /* code */
+      0x60040009,  //  0000  GETGBL	R1	G9
+      0x5C080000,  //  0001  MOVE	R2	R0
+      0x7C040200,  //  0002  CALL	R1	1
+      0x80040200,  //  0003  RET	1	R1
+    })
+  )
+);
+/*******************************************************************/
+
+
+/********************************************************************
+** Solidified function: parse_configuration
+********************************************************************/
+be_local_closure(class_Matter_Plugin_Sensor_Boolean_parse_configuration,   /* name */
+  be_nested_proto(
+    7,                          /* nstack */
+    2,                          /* argc */
+    10,                          /* varg */
+    0,                          /* has upvals */
+    NULL,                       /* no upvals */
+    0,                          /* has sup protos */
+    NULL,                       /* no sub protos */
+    1,                          /* has constants */
+    &be_ktab_class_Matter_Plugin_Sensor_Boolean,     /* shared constants */
+    be_str_weak(parse_configuration),
+    &be_const_str_solidified,
+    ( &(const binstruction[18]) {  /* code */
+      0x60080003,  //  0000  GETGBL	R2	G3
+      0x5C0C0000,  //  0001  MOVE	R3	R0
+      0x7C080200,  //  0002  CALL	R2	1
+      0x8C08050E,  //  0003  GETMET	R2	R2	K14
+      0x5C100200,  //  0004  MOVE	R4	R1
+      0x7C080400,  //  0005  CALL	R2	2
+      0x60080009,  //  0006  GETGBL	R2	G9
+      0x8C0C0307,  //  0007  GETMET	R3	R1	K7
+      0x8814010F,  //  0008  GETMBR	R5	R0	K15
+      0x58180010,  //  0009  LDCONST	R6	K16
+      0x7C0C0600,  //  000A  CALL	R3	3
+      0x7C080200,  //  000B  CALL	R2	1
+      0x90020602,  //  000C  SETMBR	R0	K3	R2
+      0x88080103,  //  000D  GETMBR	R2	R0	K3
+      0x18080511,  //  000E  LE	R2	R2	K17
+      0x780A0000,  //  000F  JMPF	R2	#0011
+      0x90020710,  //  0010  SETMBR	R0	K3	K16
+      0x80000000,  //  0011  RET	0
+    })
+  )
+);
+/*******************************************************************/
+
+
+/********************************************************************
+** Solidified function: update_virtual
+********************************************************************/
+be_local_closure(class_Matter_Plugin_Sensor_Boolean_update_virtual,   /* name */
+  be_nested_proto(
+    10,                          /* nstack */
+    2,                          /* argc */
+    10,                          /* varg */
+    0,                          /* has upvals */
+    NULL,                       /* no upvals */
+    0,                          /* has sup protos */
+    NULL,                       /* no sub protos */
+    1,                          /* has constants */
+    &be_ktab_class_Matter_Plugin_Sensor_Boolean,     /* shared constants */
+    be_str_weak(update_virtual),
+    &be_const_str_solidified,
+    ( &(const binstruction[18]) {  /* code */
+      0x8C080112,  //  0000  GETMET	R2	R0	K18
+      0x5C100200,  //  0001  MOVE	R4	R1
+      0x88140113,  //  0002  GETMBR	R5	R0	K19
+      0x8818010B,  //  0003  GETMBR	R6	R0	K11
+      0x601C0017,  //  0004  GETGBL	R7	G23
+      0x4C200000,  //  0005  LDNIL	R8
+      0x4C240000,  //  0006  LDNIL	R9
+      0x7C080E00,  //  0007  CALL	R2	7
+      0x90021602,  //  0008  SETMBR	R0	K11	R2
+      0x8C08010C,  //  0009  GETMET	R2	R0	K12
+      0x7C080200,  //  000A  CALL	R2	1
+      0x60080003,  //  000B  GETGBL	R2	G3
+      0x5C0C0000,  //  000C  MOVE	R3	R0
+      0x7C080200,  //  000D  CALL	R2	1
+      0x8C080514,  //  000E  GETMET	R2	R2	K20
+      0x5C100200,  //  000F  MOVE	R4	R1
+      0x7C080400,  //  0010  CALL	R2	2
+      0x80000000,  //  0011  RET	0
     })
   )
 );
@@ -220,25 +265,17 @@ be_local_closure(class_Matter_Plugin_Sensor_Boolean_init,   /* name */
 /********************************************************************
 ** Solidified function: parse_status
 ********************************************************************/
-extern const bclass be_class_Matter_Plugin_Sensor_Boolean;
 be_local_closure(class_Matter_Plugin_Sensor_Boolean_parse_status,   /* name */
   be_nested_proto(
     8,                          /* nstack */
     3,                          /* argc */
-    2,                          /* varg */
+    10,                          /* varg */
     0,                          /* has upvals */
     NULL,                       /* no upvals */
     0,                          /* has sup protos */
-    &be_class_Matter_Plugin_Sensor_Boolean, 
+    NULL,                       /* no sub protos */
     1,                          /* has constants */
-    ( &(const bvalue[ 6]) {     /* constants */
-    /* K0   */  be_nested_str_weak(find),
-    /* K1   */  be_nested_str_weak(Switch),
-    /* K2   */  be_nested_str_weak(tasmota_switch_index),
-    /* K3   */  be_nested_str_weak(ON),
-    /* K4   */  be_nested_str_weak(shadow_bool_value),
-    /* K5   */  be_nested_str_weak(value_updated),
-    }),
+    &be_ktab_class_Matter_Plugin_Sensor_Boolean,     /* shared constants */
     be_str_weak(parse_status),
     &be_const_str_solidified,
     ( &(const binstruction[26]) {  /* code */
@@ -246,27 +283,27 @@ be_local_closure(class_Matter_Plugin_Sensor_Boolean_parse_status,   /* name */
       0x1C0C0403,  //  0001  EQ	R3	R2	R3
       0x780E0015,  //  0002  JMPF	R3	#0019
       0x500C0000,  //  0003  LDBOOL	R3	0	0
-      0x8C100300,  //  0004  GETMET	R4	R1	K0
+      0x8C100307,  //  0004  GETMET	R4	R1	K7
       0x60180008,  //  0005  GETGBL	R6	G8
-      0x881C0102,  //  0006  GETMBR	R7	R0	K2
+      0x881C0103,  //  0006  GETMBR	R7	R0	K3
       0x7C180200,  //  0007  CALL	R6	1
-      0x001A0206,  //  0008  ADD	R6	K1	R6
+      0x001A0406,  //  0008  ADD	R6	K2	R6
       0x7C100400,  //  0009  CALL	R4	2
-      0x1C100903,  //  000A  EQ	R4	R4	K3
+      0x1C10090A,  //  000A  EQ	R4	R4	K10
       0x5C0C0800,  //  000B  MOVE	R3	R4
-      0x88100104,  //  000C  GETMBR	R4	R0	K4
+      0x8810010B,  //  000C  GETMBR	R4	R0	K11
       0x4C140000,  //  000D  LDNIL	R5
       0x20100805,  //  000E  NE	R4	R4	R5
       0x78120007,  //  000F  JMPF	R4	#0018
-      0x88100104,  //  0010  GETMBR	R4	R0	K4
+      0x8810010B,  //  0010  GETMBR	R4	R0	K11
       0x60140017,  //  0011  GETGBL	R5	G23
       0x5C180600,  //  0012  MOVE	R6	R3
       0x7C140200,  //  0013  CALL	R5	1
       0x20100805,  //  0014  NE	R4	R4	R5
       0x78120001,  //  0015  JMPF	R4	#0018
-      0x8C100105,  //  0016  GETMET	R4	R0	K5
+      0x8C10010C,  //  0016  GETMET	R4	R0	K12
       0x7C100200,  //  0017  CALL	R4	1
-      0x90020803,  //  0018  SETMBR	R0	K4	R3
+      0x90021603,  //  0018  SETMBR	R0	K11	R3
       0x80000000,  //  0019  RET	0
     })
   )
@@ -281,19 +318,20 @@ extern const bclass be_class_Matter_Plugin_Device;
 be_local_class(Matter_Plugin_Sensor_Boolean,
     2,
     &be_class_Matter_Plugin_Device,
-    be_nested_map(11,
+    be_nested_map(12,
     ( (struct bmapnode*) &(const bmapnode[]) {
-        { be_const_key_weak(shadow_bool_value, -1), be_const_var(1) },
-        { be_const_key_weak(ARG_HINT, -1), be_nested_str_weak(Switch_X3Cx_X3E_X20number) },
-        { be_const_key_weak(parse_status, -1), be_const_closure(class_Matter_Plugin_Sensor_Boolean_parse_status_closure) },
-        { be_const_key_weak(value_updated, -1), be_const_closure(class_Matter_Plugin_Sensor_Boolean_value_updated_closure) },
-        { be_const_key_weak(tasmota_switch_index, -1), be_const_var(0) },
-        { be_const_key_weak(ARG_TYPE, -1), be_const_static_closure(class_Matter_Plugin_Sensor_Boolean__X3Clambda_X3E_closure) },
-        { be_const_key_weak(update_shadow, -1), be_const_closure(class_Matter_Plugin_Sensor_Boolean_update_shadow_closure) },
-        { be_const_key_weak(ARG, -1), be_nested_str_weak(switch) },
         { be_const_key_weak(UPDATE_TIME, -1), be_const_int(750) },
-        { be_const_key_weak(init, 8), be_const_closure(class_Matter_Plugin_Sensor_Boolean_init_closure) },
-        { be_const_key_weak(parse_configuration, 2), be_const_closure(class_Matter_Plugin_Sensor_Boolean_parse_configuration_closure) },
+        { be_const_key_weak(update_shadow, 6), be_const_closure(class_Matter_Plugin_Sensor_Boolean_update_shadow_closure) },
+        { be_const_key_weak(value_updated, -1), be_const_closure(class_Matter_Plugin_Sensor_Boolean_value_updated_closure) },
+        { be_const_key_weak(init, 5), be_const_closure(class_Matter_Plugin_Sensor_Boolean_init_closure) },
+        { be_const_key_weak(ARG_TYPE, -1), be_const_static_closure(class_Matter_Plugin_Sensor_Boolean__X3Clambda_X3E_closure) },
+        { be_const_key_weak(parse_status, 11), be_const_closure(class_Matter_Plugin_Sensor_Boolean_parse_status_closure) },
+        { be_const_key_weak(parse_configuration, -1), be_const_closure(class_Matter_Plugin_Sensor_Boolean_parse_configuration_closure) },
+        { be_const_key_weak(update_virtual, -1), be_const_closure(class_Matter_Plugin_Sensor_Boolean_update_virtual_closure) },
+        { be_const_key_weak(shadow_bool_value, 7), be_const_var(1) },
+        { be_const_key_weak(ARG_HINT, -1), be_nested_str_weak(Switch_X3Cx_X3E_X20number) },
+        { be_const_key_weak(tasmota_switch_index, -1), be_const_var(0) },
+        { be_const_key_weak(ARG, -1), be_nested_str_weak(switch) },
     })),
     be_str_weak(Matter_Plugin_Sensor_Boolean)
 );

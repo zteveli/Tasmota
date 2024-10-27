@@ -82,7 +82,8 @@ typedef union {                            // Restricted by MISRA-C Rule 18.4 bu
     uint32_t tuya_serial_mqtt_publish : 1; // bit 16 (v6.6.0.21) - SetOption66  - (Tuya) Enable (1) TuyaMcuReceived messages over Mqtt
     uint32_t buzzer_enable : 1;            // bit 17 (v6.6.0.1)  - SetOption67  - (Buzzer) Enable (1) buzzer when available
     uint32_t pwm_multi_channels : 1;       // bit 18 (v6.6.0.3)  - SetOption68  - (Light) Enable multi-channels PWM (1) instead of Color PWM (0)
-    uint32_t ex_tuya_dimmer_min_limit : 1; // bit 19 (v6.6.0.5)  - SetOption69  - (not used) Limits Tuya dimmers to minimum of 10% (25) when enabled
+//    uint32_t ex_tuya_dimmer_min_limit : 1; // bit 19 (v6.6.0.5)  - SetOption69  - (not used) Limits Tuya dimmers to minimum of 10% (25) when enabled
+    uint32_t sb_receive_invert : 1;        // bit 19 (v14.2.0.3) - SetOption69  - (Serial) Invert Serial receive on SerialBridge (1)
     uint32_t energy_weekend : 1;           // bit 20 (v6.6.0.8)  - CMND_TARIFF
     uint32_t dds2382_model : 1;            // bit 21 (v6.6.0.14) - SetOption71  - (DDS2382) Select different Modbus registers (1) for Active Energy (#6531)
     uint32_t hardware_energy_total : 1;    // bit 22 (v6.6.0.15) - SetOption72  - (Energy) Enable (1) hardware energy total counter as reference (#6561)
@@ -193,7 +194,7 @@ typedef union {                            // Restricted by MISRA-C Rule 18.4 bu
     uint32_t neopool_outputsensitive : 1;  // bit 11 (v13.2.0.1) - SetOption157 - (NeoPool) Output sensitive data (1)
     uint32_t mqtt_disable_modbus : 1;      // bit 12 (v13.3.0.5) - SetOption158 - (MQTT) Disable publish ModbusReceived MQTT messages (1), you must use event trigger rules instead
     uint32_t counter_both_edges : 1;       // bit 13 (v13.3.0.5) - SetOption159 - (Counter) Enable counting on both rising and falling edge (1)
-    uint32_t spare14 : 1;                  // bit 14
+    uint32_t ld2410_use_pin : 1;           // bit 14 (v14.3.0.2) - SetOption160 - (LD2410) Disable generate moving event by sensor report - use LD2410 out pin for events (1)
     uint32_t spare15 : 1;                  // bit 15
     uint32_t spare16 : 1;                  // bit 16
     uint32_t spare17 : 1;                  // bit 17
@@ -288,7 +289,7 @@ typedef union {
     uint32_t influxdb_sensor : 1;          // bit 10 (v11.0.0.5) - CMND_IFXSENSOR - Enable sensor support in addition to teleperiod support
     uint32_t ex_serbridge_console : 1;     // bit 11 (v11.1.0.4) - (v14.1.0.2) Replaced by CMND_SSERIALMODE
     uint32_t telegram_disable_af : 1;      // bit 12 (v14.0.0.2) - CMND_TMSTATE 6/7 - Disable Telegram auto-fingerprint fix
-    uint32_t spare13 : 1;                  // bit 13
+    uint32_t dali_light : 1;               // bit 13 (v14.2.0.6) - CMND_DALILIGHT - Enable Tasmota light controls for DALI
     uint32_t spare14 : 1;                  // bit 14
     uint32_t spare15 : 1;                  // bit 15
     uint32_t spare16 : 1;                  // bit 16
@@ -562,9 +563,9 @@ typedef struct {
   uint16_t      energy_max_power_limit;              // 386  MaxPowerLimit
   uint16_t      energy_max_power_limit_hold;         // 388  MaxPowerLimitHold
   uint16_t      energy_max_power_limit_window;       // 38A  MaxPowerLimitWindow
-  uint16_t      energy_max_power_safe_limit;         // 38C  MaxSafePowerLimit
-  uint16_t      energy_max_power_safe_limit_hold;    // 38E  MaxSafePowerLimitHold
-  uint16_t      energy_max_power_safe_limit_window;  // 390  MaxSafePowerLimitWindow
+  uint16_t      ex_energy_max_power_safe_limit;         // 38C  MaxSafePowerLimit - Free since 14.1.0.3
+  uint16_t      ex_energy_max_power_safe_limit_hold;    // 38E  MaxSafePowerLimitHold - Free since 14.1.0.3
+  uint16_t      ex_energy_max_power_safe_limit_window;  // 390  MaxSafePowerLimitWindow - Free since 14.1.0.3
   uint16_t      energy_max_energy;         // 392  MaxEnergy
   uint16_t      energy_max_energy_start;   // 394  MaxEnergyStart
   uint16_t      mqtt_retry;                // 396
@@ -697,8 +698,9 @@ typedef struct {
   uint16_t      mqtt_socket_timeout;       // 52E
   uint8_t       mqtt_wifi_timeout;         // 530
   uint8_t       ina219_mode;               // 531
+  uint8_t       weight_precision;          // 532  ex_pulse_timer free since 11.0.0.3
 
-  uint16_t      ex_pulse_timer[7];         // 532  ex_pulse_timer free since 11.0.0.3
+  uint8_t       free_533[13];              // 533
 
   uint16_t      tcp_baudrate;              // 540 
   uint16_t      button_debounce;           // 542

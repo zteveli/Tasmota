@@ -35,6 +35,7 @@ class Matter_Plugin
   static var UPDATE_TIME = 5000             # default is every 5 seconds
   static var VIRTUAL = false                # set to true only for virtual devices
   static var BRIDGE = false                 # set to true only for bridged devices (ESP8266 or OpenBK)
+  static var ZIGBEE = false                 # set to true only when mapped to a zigbee device
   var update_next                           # next timestamp for update
   # Configuration of the plugin: clusters and type
   static var CLUSTERS = matter.consolidate_clusters(_class, {
@@ -99,7 +100,6 @@ class Matter_Plugin
   static var UPDATE_COMMANDS = []
   var device                                # reference to the `device` global object
   var endpoint                              # current endpoint
-  var clusters                              # map from cluster to list of attributes, typically constructed from CLUSTERS hierachy
   var tick                                  # tick value when it was last updated
   var node_label                            # name of the endpoint, used only in bridge mode, "" if none
 
@@ -118,7 +118,6 @@ class Matter_Plugin
   def init(device, endpoint, config)
     self.device = device
     self.endpoint = endpoint
-    self.clusters = self.get_clusters()
     self.parse_configuration(config)
     self.node_label = config.find("name", "")
   end
@@ -260,6 +259,13 @@ matter_device.events.dump()
   #
   # we limit to 3 commands (to we need more?)
   def publish_command(key1, value1, key2, value2, key3, value3)
+    # if zigbee, decompose simple commands
+    if self.ZIGBEE && self.zigbee_mapper && self.zigbee_mapper.resolve_zb_device()
+      self.zigbee_mapper.zb_single_command(key1, value1)
+      self.zigbee_mapper.zb_single_command(key2, value2)
+      self.zigbee_mapper.zb_single_command(key3, value3)
+    end
+
     import json
     var payload = f"{json.dump(key1)}:{json.dump(value1)}"
     if key2 != nil
@@ -277,20 +283,26 @@ matter_device.events.dump()
     return self.endpoint
   end
   def get_cluster_list_sorted()
-    return self.device.k2l(self.clusters)
+    return self.device.k2l(self.CLUSTERS)
   end
   def contains_cluster(cluster)
-    return self.clusters.contains(cluster)
+    return self.CLUSTERS.contains(cluster)
   end
-  def get_attribute_list(cluster)
-    return self.clusters.find(cluster, [])
+  # def get_attribute_list(cluster)
+  #   return self.clusters.find(cluster, [])
+  # end
+  # returns as a constant bytes of 16-bit ints, big endian
+  def get_attribute_list_bytes(cluster)
+    return self.CLUSTERS.find(cluster, nil)
   end
   def contains_attribute(cluster, attribute)
-    var attr_list = self.clusters.find(cluster)
+    var attr_list = self.CLUSTERS.find(cluster)
+    # log(f"MTR: contains_attribute {cluster=} {attribute=} {attr_list=}")
     if attr_list != nil
       var idx = 0
-      while idx < size(attr_list)
-        if attr_list[idx] == attribute
+      var attr_sz = size(attr_list) / 2     # group of 16-bit integers, big endian
+      while idx < attr_sz
+        if attr_list.get(idx * 2, -2) == attribute
           return true
         end
         idx += 1
@@ -359,10 +371,11 @@ matter_device.events.dump()
       return gcl                        # return empty list
     elif attribute == 0xFFFB            # AttributeList
       var acli = TLV.Matter_TLV_array()
-      var attr_list = self.get_attribute_list(cluster)
+      var attr_list_bytes = self.get_attribute_list_bytes(cluster)
+      var attr_list_bytes_sz = (attr_list_bytes != nil) ? size(attr_list_bytes) : 0
       var idx = 0
-      while idx < size(attr_list)
-        acli.add_TLV(nil, TLV.U2, attr_list[idx])
+      while idx < attr_list_bytes_sz
+        acli.add_TLV(nil, TLV.U2, attr_list_bytes.get(idx * 2, -2))
         idx += 1
       end
       return acli                       # TODO, empty list for now
@@ -531,7 +544,7 @@ matter_device.events.dump()
   #   key: key name in the JSON payload to read from, do nothing if key does not exist or content is `null`
   #   old_val: previous value, used to detect a change or return the value unchanged
   #   type_func: type enforcer for value, typically `int`, `bool`, `str`, `number`, `real`
-  #   cluster/attribute: in case the value has change, publish a change to cluster/attribute
+  #   cluster/attribute: in case the value has change, publish a change to cluster/attribute. Don't publish if they are `nil`
   #
   # Returns:
   #   `old_val` if key does not exist, JSON value is `null`, or value is unchanged
@@ -541,7 +554,7 @@ matter_device.events.dump()
     var val = payload.find(key)
     if (val != nil)
       val = type_func(val)
-      if (val != old_val)
+      if (val != old_val) && (cluster != nil) && (attribute != nil)
         self.attribute_updated(cluster, attribute)
       end
       return val

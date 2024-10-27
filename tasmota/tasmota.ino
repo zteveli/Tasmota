@@ -305,14 +305,16 @@ struct TasmotaGlobal_t {
 
   bool serial_local;                        // Handle serial locally
   bool fallback_topic_flag;                 // Use Topic or FallbackTopic
+  bool no_mqtt_response;                    // Respond with rule processing only
   bool backlog_nodelay;                     // Execute all backlog commands with no delay
   bool backlog_mutex;                       // Command backlog pending
+  bool backlog_no_mqtt_response;            // Set respond with rule processing only
   bool stop_flash_rotate;                   // Allow flash configuration rotation
   bool blinkstate;                          // LED state
   bool pwm_present;                         // Any PWM channel configured with SetOption15 0
   bool i2c_enabled;                         // I2C configured
+  bool i2c_enabled_2;                       // I2C configured, second controller, Wire1
 #ifdef ESP32
-  bool i2c_enabled_2;                       // I2C configured, second controller on ESP32, Wire1
   bool ota_factory;                         // Select safeboot binary
 #endif
   bool ntp_force_sync;                      // Force NTP sync
@@ -394,6 +396,11 @@ LList<char*> backlog;                       // Command backlog implemented with 
  * Main
 \*********************************************************************************************/
 
+#ifdef ESP32
+// IDF5.3 fix esp_gpio_reserve used in init PSRAM. Needed by Tasmota.ino esp_gpio_revoke
+#include "esp_private/esp_gpio_reserve.h"
+#endif  // ESP32
+
 void setup(void) {
 #ifdef ESP32
 #ifdef CONFIG_IDF_TARGET_ESP32
@@ -406,9 +413,11 @@ void setup(void) {
   if (!FoundPSRAM()) {
     // test if the CPU is not pico
     uint32_t pkg_version = bootloader_common_get_chip_ver_pkg();
-    if (pkg_version <= 3) {   // D0WD, S0WD, D2WD
-      gpio_reset_pin(GPIO_NUM_16);
-      gpio_reset_pin(GPIO_NUM_17);
+    if (pkg_version <= 3) {         // D0WD, S0WD, D2WD
+      gpio_reset_pin(GPIO_NUM_16);  // D0WD_PSRAM_CS_IO
+      gpio_reset_pin(GPIO_NUM_17);  // D0WD_PSRAM_CLK_IO
+      // IDF5.3 fix esp_gpio_reserve used in init PSRAM
+      esp_gpio_revoke(BIT64(GPIO_NUM_16) | BIT64(GPIO_NUM_17));
     }
   }
 #endif  // CONFIG_IDF_TARGET_ESP32
@@ -499,9 +508,9 @@ void setup(void) {
     TasConsole.println();
     AddLog(LOG_LEVEL_INFO, PSTR("CMD: Using USB CDC"));
   } else {
-    #if SOC_USB_SERIAL_JTAG_SUPPORTED  // Not S2
+#if SOC_USB_SERIAL_JTAG_SUPPORTED  // Not S2
     HWCDCSerial.~HWCDC();       // not needed, deinit CDC
-    #endif  // SOC_USB_SERIAL_JTAG_SUPPORTED
+#endif  // SOC_USB_SERIAL_JTAG_SUPPORTED
     // Init command serial console preparing for AddLog use
     Serial.begin(TasmotaGlobal.baudrate);
     Serial.println();
@@ -711,6 +720,7 @@ void BacklogLoop(void) {
           free(cmd);
           nodelay = true;
         } else {
+          TasmotaGlobal.no_mqtt_response = TasmotaGlobal.backlog_no_mqtt_response;
           ExecuteCommand(cmd, SRC_BACKLOG);
           free(cmd);
           if (nodelay || TasmotaGlobal.backlog_nodelay) {
@@ -719,23 +729,6 @@ void BacklogLoop(void) {
           break;
         }
       } while (!BACKLOG_EMPTY);
-/*
-      // This adds 96 bytes
-      for (auto &cmd : backlog) {
-        backlog.remove(&cmd);
-        if (!strncasecmp_P(cmd, PSTR(D_CMND_NODELAY), strlen(D_CMND_NODELAY))) {
-          free(cmd);
-          nodelay = true;
-        } else {
-          ExecuteCommand(cmd, SRC_BACKLOG);
-          free(cmd);
-          if (nodelay || TasmotaGlobal.backlog_nodelay) {
-            TasmotaGlobal.backlog_timer = millis();  // Reset backlog_timer which has been set by ExecuteCommand (CommandHandler)
-          }
-          break;
-        }
-      }
-*/
       TasmotaGlobal.backlog_mutex = false;
     }
     if (BACKLOG_EMPTY) {

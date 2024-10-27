@@ -63,7 +63,7 @@ const char kMqttCommands[] PROGMEM = "|"  // No prefix
 #ifdef USE_MQTT_FILE
   D_CMND_FILEUPLOAD "|" D_CMND_FILEDOWNLOAD "|"
 #endif  // USE_MQTT_FILE
-  D_CMND_MQTTHOST "|" D_CMND_MQTTPORT "|" D_CMND_MQTTRETRY "|" D_CMND_STATETEXT "|" D_CMND_MQTTCLIENT "|"
+  D_CMND_MQTTHOST "|" D_CMND_MQTTPORT "|" D_CMND_MQTTRETRY "|" D_CMND_MQTTCLIENT "|"
   D_CMND_FULLTOPIC "|" D_CMND_PREFIX "|" D_CMND_GROUPTOPIC "|" D_CMND_TOPIC "|" D_CMND_PUBLISH "|" D_CMND_MQTTLOG "|"
   D_CMND_BUTTONTOPIC "|" D_CMND_SWITCHTOPIC "|" D_CMND_BUTTONRETAIN "|" D_CMND_SWITCHRETAIN "|" D_CMND_POWERRETAIN "|"
   D_CMND_SENSORRETAIN "|" D_CMND_INFORETAIN "|" D_CMND_STATERETAIN "|" D_CMND_STATUSRETAIN
@@ -90,7 +90,7 @@ void (* const MqttCommand[])(void) PROGMEM = {
 #ifdef USE_MQTT_FILE
   &CmndFileUpload, &CmndFileDownload,
 #endif  // USE_MQTT_FILE
-  &CmndMqttHost, &CmndMqttPort, &CmndMqttRetry, &CmndStateText, &CmndMqttClient,
+  &CmndMqttHost, &CmndMqttPort, &CmndMqttRetry, &CmndMqttClient,
   &CmndFullTopic, &CmndPrefix, &CmndGroupTopic, &CmndTopic, &CmndPublish, &CmndMqttlog,
   &CmndButtonTopic, &CmndSwitchTopic, &CmndButtonRetain, &CmndSwitchRetain, &CmndPowerRetain,
   &CmndSensorRetain, &CmndInfoRetain, &CmndStateRetain, &CmndStatusRetain
@@ -177,6 +177,19 @@ void MqttDisableLogging(bool state) {
   TasmotaGlobal.masterlog_level = (Mqtt.disable_logging) ? LOG_LEVEL_DEBUG_MORE : LOG_LEVEL_NONE;
 }
 
+// The following emits a warning if the connection is non-TLS on a TLS port
+// this makes troubleshooting easier
+// This function is called only when a non-TLS connection is detected
+void MqttNonTLSWarning(void) {
+#ifndef FIRMWARE_MINIMAL    // not needed in MINIMAL firmware
+  if ((443  == Settings->mqtt_port) ||
+      (8883 == Settings->mqtt_port ) ||
+      (8443 == Settings->mqtt_port)) {
+    AddLog(LOG_LEVEL_INFO, PSTR(D_LOG_MQTT "Warning non-TLS connection on TLS port %d"), Settings->mqtt_port);
+  }
+#endif // FIRMWARE_MINIMAL
+}
+
 /*********************************************************************************************\
  * MQTT driver specific code need to provide the following functions:
  *
@@ -253,9 +266,11 @@ void MqttInit(void) {
     MqttClient.setClient(*tlsClient);
   } else {
     MqttClient.setClient(EspClient);    // non-TLS
+    MqttNonTLSWarning();
   }
 #else // USE_MQTT_TLS
   MqttClient.setClient(EspClient);
+  MqttNonTLSWarning();
 #endif // USE_MQTT_TLS
 
   MqttClient.setKeepAlive(Settings->mqtt_keepalive);
@@ -1152,6 +1167,7 @@ void MqttReconnect(void) {
     tlsClient->setDomainName(SettingsText(SET_MQTT_HOST));   // set domain name for TLS SNI (selection of certificate based on domain name)
   } else {
     MqttClient.setClient(EspClient);
+    MqttNonTLSWarning();
   }
 #ifdef USE_MQTT_AWS_IOT
   // re-assign private keys in case it was updated in between
@@ -1192,6 +1208,7 @@ void MqttReconnect(void) {
   }
 #else   // No USE_MQTT_TLS
   MqttClient.setClient(EspClient);
+  MqttNonTLSWarning();
 #endif  // USE_MQTT_TLS
 
   char stopic[TOPSZ];
@@ -1504,22 +1521,6 @@ void CmndMqttRetry(void) {
     Mqtt.retry_counter = Settings->mqtt_retry;
   }
   ResponseCmndNumber(Settings->mqtt_retry);
-}
-
-void CmndStateText(void) {
-  if ((XdrvMailbox.index > 0) && (XdrvMailbox.index <= MAX_STATE_TEXT)) {
-    if (!XdrvMailbox.usridx) {
-      ResponseCmndAll(SET_STATE_TXT1, MAX_STATE_TEXT);
-    } else {
-      if (XdrvMailbox.data_len > 0) {
-        for (uint32_t i = 0; i <= XdrvMailbox.data_len; i++) {
-          if (XdrvMailbox.data[i] == ' ') XdrvMailbox.data[i] = '_';
-        }
-        SettingsUpdateText(SET_STATE_TXT1 + XdrvMailbox.index -1, XdrvMailbox.data);
-      }
-      ResponseCmndIdxChar(GetStateText(XdrvMailbox.index -1));
-    }
-  }
 }
 
 void CmndMqttClient(void) {

@@ -198,7 +198,7 @@ enum UserSelectablePins {
   GPIO_ADE7953_RST,                    // ADE7953 Reset
   GPIO_NRG_MBS_TX, GPIO_NRG_MBS_RX,    // Generic Energy Modbus device
   GPIO_ADE7953_CS,                     // ADE7953 SPI Chip Select
-  GPIO_DALI_RX, GPIO_DALI_TX,          // Dali
+  GPIO_DALI_RX, GPIO_DALI_TX,          // DALI
   GPIO_BP1658CJ_CLK, GPIO_BP1658CJ_DAT,// BP1658CJ
   GPIO_DINGTIAN_CLK, GPIO_DINGTIAN_SDI, GPIO_DINGTIAN_Q7, GPIO_DINGTIAN_PL, GPIO_DINGTIAN_RCK,  // Dingtian relay board - 595's & 165's pins
   GPIO_LD2410_TX, GPIO_LD2410_RX,      // HLK-LD2410
@@ -221,6 +221,11 @@ enum UserSelectablePins {
   GPIO_RN2XX3_TX, GPIO_RN2XX3_RX, GPIO_RN2XX3_RST,  // RN2XX3 LoRaWan node Serial interface
   GPIO_TCP_TX_EN,                       // TCP to serial bridge, EN pin
   GPIO_ASR650X_TX, GPIO_ASR650X_RX,     // ASR650X LoRaWan node Serial interface
+  GPIO_WOOLIIS_RX,                      // Wooliis Battery capacity monitor Serial RX
+  GPIO_ADC_VOLTAGE, GPIO_ADC_CURRENT,   // Analog Voltage and Current
+  GPIO_BL0906_RX,                       // BL0906 Serial interface
+  GPIO_DALI_RX_INV, GPIO_DALI_TX_INV,   // DALI
+  GPIO_LD2410S_TX, GPIO_LD2410S_RX,     // HLK-LD2410S
   GPIO_SENSOR_END };
 
 // Error as warning to rethink GPIO usage with max 2045
@@ -231,7 +236,7 @@ enum ProgramSelectablePins {
   GPIO_USER,           // User configurable needs to be 2047
   GPIO_MAX };
 
-#define MAX_OPTIONS_A  7                   // Increase if more bits are used from GpioOptionABits
+#define MAX_OPTIONS_A  9                   // Increase if more bits are used from GpioOptionABits
 
 typedef union {                            // Restricted by MISRA-C Rule 18.4 but so useful...
   uint32_t data;                           // Allow bit manipulation using SetOption
@@ -243,8 +248,8 @@ typedef union {                            // Restricted by MISRA-C Rule 18.4 bu
     uint32_t rotary_mi_desk : 1;           // bit 4 (v9.5.0.5)   - Option_A5 - (Rotary) Enable Mi Desk emulation
     uint32_t linkind_support : 1;          // bit 5 (v10.1.0.4)  - Option_A6 - (Light) LinkInd support
     uint32_t shelly_pro : 1;               // bit 6 (v12.2.0.1)  - Option_A7 - (Device) Shelly Pro
-    uint32_t spare07 : 1;                  // bit 7
-    uint32_t spare08 : 1;                  // bit 8
+    uint32_t ifan04_h : 1;                 // bit 7 (v14.1.0.4)  - Option_A8 - (Device) Sonoff ifan04-H
+    uint32_t berry_energy : 1;             // bit 8 (v14.2.0.4)  - Option_A9 - (Energy) Enable Berry energy driver
     uint32_t spare09 : 1;                  // bit 9
     uint32_t spare10 : 1;                  // bit 10
     uint32_t spare11 : 1;                  // bit 11
@@ -489,12 +494,22 @@ const char kSensorNames[] PROGMEM =
   D_GPIO_RN2XX3_TX "|" D_GPIO_RN2XX3_RX "|" D_GPIO_RN2XX3_RST "|"
   D_SENSOR_TCP_TXD_EN "|"
   D_GPIO_ASR650X_TX "|" D_GPIO_ASR650X_RX "|"
+  D_SENSOR_WOOLIIS_RX "|"
+  D_SENSOR_ADC_VOLTAGE "|" D_SENSOR_ADC_CURRENT "|"
+  D_SENSOR_BL0906_RX "|"
+  D_SENSOR_DALI_RX "_i|" D_SENSOR_DALI_TX "_i|"
+  D_SENSOR_LD2410S_TX "|" D_SENSOR_LD2410S_RX "|"
   ;
 
 const char kSensorNamesFixed[] PROGMEM =
   D_SENSOR_USER;
 
 // Max number of GPIOs
+#define MAX_I2C          0              // Display no index if one bus
+#ifdef USE_I2C_BUS2
+#undef MAX_I2C
+#define MAX_I2C          2
+#endif
 #define MAX_MAX31855S    6
 #define MAX_MAX31865S    6
 #define MAX_MCP23XXX     6
@@ -508,7 +523,9 @@ const char kSensorNamesFixed[] PROGMEM =
 #define MAX_BP1658CJ_DAT 16
 #define MAX_DINGTIAN_SHIFT  4
 #define MAX_MAGIC_SWITCH_MODES   2
+#define MAX_BL0906_RX    6              // Model number of phases, 2 (EM2), 6 (EM6)
 #define MAX_BL0942_RX    8              // Baudrates 1/5 (4800), 2/6 (9600), 3/7 (19200), 4/8 (38400), Support Positive values only 1..4, Support also negative values 5..8
+#define MAX_CSE7761      2              // Model 1/2 (DUALR3), 2/2 (POWCT)
 
 const uint16_t kGpioNiceList[] PROGMEM = {
   GPIO_NONE,                            // Not used
@@ -578,11 +595,6 @@ const uint16_t kGpioNiceList[] PROGMEM = {
 /*-------------------------------------------------------------------------------------------*\
  * Protocol specifics
 \*-------------------------------------------------------------------------------------------*/
-
-#if defined(USE_DALI) && defined(ESP32)
-  AGPIO(GPIO_DALI_RX),                  // DALI RX
-  AGPIO(GPIO_DALI_TX),                  // DALI TX
-#endif  // USE_DALI
 
 #ifdef USE_I2C
   AGPIO(GPIO_I2C_SCL) + MAX_I2C,        // I2C SCL
@@ -821,6 +833,13 @@ const uint16_t kGpioNiceList[] PROGMEM = {
 #endif
 #endif  // USE_LIGHT
 
+#ifdef USE_DALI
+  AGPIO(GPIO_DALI_TX),                  // DALI TX
+  AGPIO(GPIO_DALI_TX_INV),              // DALI TX inverted
+  AGPIO(GPIO_DALI_RX),                  // DALI RX
+  AGPIO(GPIO_DALI_RX_INV),              // DALI RX inverted
+#endif  // USE_DALI
+
 /*-------------------------------------------------------------------------------------------*\
  * Transmission sensors
 \*-------------------------------------------------------------------------------------------*/
@@ -886,7 +905,7 @@ const uint16_t kGpioNiceList[] PROGMEM = {
 #endif  // USE_ADE7953
 #ifdef USE_CSE7761
   AGPIO(GPIO_CSE7761_TX),               // CSE7761 Serial interface (Dual R3)
-  AGPIO(GPIO_CSE7761_RX),               // CSE7761 Serial interface (Dual R3)
+  AGPIO(GPIO_CSE7761_RX) + MAX_CSE7761,  // CSE7761 Serial interface (1 = Dual R3, 2 = POWCT)
 #endif
 #ifdef USE_CSE7766
   AGPIO(GPIO_CSE7766_TX),               // CSE7766 Serial interface (S31 and Pow R2)
@@ -934,11 +953,16 @@ const uint16_t kGpioNiceList[] PROGMEM = {
   AGPIO(GPIO_SOLAXX1_TX),               // Solax Inverter tx pin
   AGPIO(GPIO_SOLAXX1_RX),               // Solax Inverter rx pin
   AGPIO(GPIO_SOLAXX1_RTS),              // Solax Inverter RTS pin
-#endif // USE_SOLAX_X1
+#endif  // USE_SOLAX_X1
 #ifdef USE_LE01MR
   AGPIO(GPIO_LE01MR_TX),                // F7F LE-01MR energy meter tx pin
   AGPIO(GPIO_LE01MR_RX),                // F7F LE-01MR energy meter rx pin
-#endif // IFDEF:USE_LE01MR
+#endif  // USE_LE01MR
+#ifdef ESP32
+#ifdef USE_BL0906
+  AGPIO(GPIO_BL0906_RX) + MAX_BL0906_RX,  // BL0906 Serial interface (Athom EM6)
+#endif  // USE_BL0906
+#endif  // ESP32
 #if defined(USE_BL0940) || defined(USE_BL09XX)
   AGPIO(GPIO_BL0939_RX),                // BL0939 Serial interface (Dual R3 v2)
   AGPIO(GPIO_BL0940_RX),                // BL0940 Serial interface
@@ -1082,6 +1106,10 @@ const uint16_t kGpioNiceList[] PROGMEM = {
   AGPIO(GPIO_LD2410_TX),                // HLK-LD2410 Serial interface
   AGPIO(GPIO_LD2410_RX),                // HLK-LD2410 Serial interface
 #endif
+#ifdef USE_LD2410S                      // xsns_102_ld2410s.ino
+  AGPIO(GPIO_LD2410S_TX),                // HLK-LD2410S Serial interface
+  AGPIO(GPIO_LD2410S_RX),                // HLK-LD2410S Serial interface
+#endif
 #ifdef USE_LOX_O2                       // xsns_105_lox_o2.ino
   AGPIO(GPIO_LOX_O2_RX),                // LuminOx Oxygen Sensor LOX-O2 Serial interface
 #endif
@@ -1093,6 +1121,9 @@ const uint16_t kGpioNiceList[] PROGMEM = {
 #ifdef USE_LORAWAN_ASR650X
   AGPIO(GPIO_ASR650X_TX),
   AGPIO(GPIO_ASR650X_RX),               // ASR650X LoRaWan node Serial interface
+#endif
+#ifdef USE_WOOLIIS                      // xsns_115_wooliis.ino
+  AGPIO(GPIO_WOOLIIS_RX),               // Wooliis Battery capacity monitor Serial interface
 #endif
 
 /*-------------------------------------------------------------------------------------------*\
@@ -1218,6 +1249,11 @@ const uint16_t kGpioNiceList[] PROGMEM = {
   AGPIO(GPIO_ETH_PHY_MDC),
   AGPIO(GPIO_ETH_PHY_MDIO),             // Ethernet
 #endif  // USE_ETHERNET
+#ifdef USE_BIOPDU
+  AGPIO(GPIO_BIOPDU_PZEM0XX_TX),        // Biomine BioPDU pins
+  AGPIO(GPIO_BIOPDU_PZEM016_RX),
+  AGPIO(GPIO_BIOPDU_BIT) + 3,
+#endif
 
 /*-------------------------------------------------------------------------------------------*\
  * ESP32 multiple Analog / Digital converter inputs
@@ -1233,12 +1269,8 @@ const uint16_t kGpioNiceList[] PROGMEM = {
   AGPIO(GPIO_ADC_JOY) + MAX_ADCS,       // Joystick
   AGPIO(GPIO_ADC_PH) + MAX_ADCS,        // Analog PH Sensor
   AGPIO(GPIO_ADC_MQ) + MAX_ADCS,        // Analog MQ Sensor
-
-#ifdef USE_BIOPDU
-  AGPIO(GPIO_BIOPDU_PZEM0XX_TX),  // Biomine BioPDU pins
-  AGPIO(GPIO_BIOPDU_PZEM016_RX),
-  AGPIO(GPIO_BIOPDU_BIT) + 3,
-#endif
+  AGPIO(GPIO_ADC_VOLTAGE) + MAX_ADCS,   // Voltage
+  AGPIO(GPIO_ADC_CURRENT) + MAX_ADCS,   // Current
 #endif  // ESP32
 };
 
@@ -1259,25 +1291,10 @@ const uint16_t kAdcNiceList[] PROGMEM = {
   AGPIO(GPIO_ADC_JOY),                    // Joystick
   AGPIO(GPIO_ADC_PH),                     // Analog PH Sensor
   AGPIO(GPIO_ADC_MQ),                     // Analog MQ Sensor
+  AGPIO(GPIO_ADC_VOLTAGE),                // Voltage
+  AGPIO(GPIO_ADC_CURRENT),                // Current
 };
 #endif  // ESP8266
-
-// User selectable ADC functionality
-enum UserSelectableAdc {
-  ADC_NONE,           // Not used
-  ADC_INPUT,          // Analog input
-  ADC_TEMP,           // Thermistor
-  ADC_LIGHT,          // Light sensor
-  ADC_BUTTON,         // Button
-  ADC_BUTTON_INV,
-  ADC_RANGE,          // Range
-  ADC_CT_POWER,       // Current
-  ADC_JOY,            // Joystick
-  ADC_PH,             // Analog PH Sensor
-  ADC_MQ,             // Analog MQ Sensor
-//  ADC_SWITCH,         // Switch
-//  ADC_SWITCH_INV,
-  ADC_END };
 
 /*********************************************************************************************\
  * ATTENTION: No user changeable features beyond this point - do not add templates !!!
