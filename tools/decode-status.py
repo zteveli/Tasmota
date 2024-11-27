@@ -340,7 +340,7 @@ else:
         obj = json.load(fp)
 
 def StartDecode():
-    print ("\n*** decode-status.py v14.3.0.2 by Theo Arends and Jacek Ziolkowski ***")
+    print ("\n*** decode-status.py v14.3.0.5 by Theo Arends and Jacek Ziolkowski ***")
 
 #    print("Decoding\n{}".format(obj))
 
