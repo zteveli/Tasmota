@@ -20,31 +20,76 @@ class microUPS
     tasmota.remove_driver(self)
   end
 
+  def swap_bytes(value)
+    return ((value >> 8) & 0xFF) + ((value << 8) & 0xFF00)
+  end
+
+  # Utility to read and decode value register
+  def read_value_reg(reg_addr, one_byte)
+    var reg = wire1.read(0x6B, reg_addr, 2)
+    var ret = self.swap_bytes(reg)
+
+    if one_byte
+      ret = ret * 100
+    end
+
+    return ret
+  end
+
+  # Utility to write to value register
+  def write_value_reg(reg_addr, one_byte, value)
+    if one_byte
+      value -= 100
+    end
+
+    value = self.swap_bytes(value)
+    wire1.write(0x6B, reg_addr, value, 2)
+  end
+  
   def read_device_id()
     # Read charger ManufactureID and Device ID registers
     return wire1.read(0x6B, 0x2E, 2)
   end
 
   def read_charge_voltage()
-    var reg1 = wire1.read(0x6B, 0x04, 1)
-    var reg2 = wire1.read(0x6B, 0x05, 1)
-    var voltage = 0
-    var multiplier = 8
+    return self.read_value_reg(0x04, false)
+  end
 
-    reg1 >>= 3
-    for i: 0..4
-      voltage += (reg1 & 0x01) * multiplier
-      multiplier <<= 1
-      reg1 >>= 1
-    end
+  def read_charge_current()
+    return self.read_value_reg(0x02, false) << 1
+  end
 
-    for i: 0..6
-      voltage += (reg2 & 0x01) * multiplier
-      multiplier <<= 1
-      reg2 >>= 1
-    end
+  def write_charge_current(value)
+    self.write_value_reg(0x02, false, value >> 1)
+  end
 
-    return voltage
+  def enable_adc()
+    # ADC_CONV, EN_ADC_VBUS, EN_ADC_PSYS, EN_ADC_IIN, EN_ADC_IDCHG, EN_ADC_ICHG, EN_ADC_VSYS, EN_ADC_VBAT
+    wire1.write(0x6B, 0x3A, 0x7F80, 2)
+  end
+
+  def read_adc_vsys()
+    return wire1.read(0x6B, 0x2D, 1) * 64 + 8160
+  end
+
+  def read_adc_vbat()
+    return wire1.read(0x6B, 0x2C, 1) * 64 + 8160
+  end
+
+  def read_adc_vbus()
+    return wire1.read(0x6B, 0x27, 1) * 96
+  end
+
+  def read_adc_ichg()
+    return wire1.read(0x6B, 0x29, 1) * 128
+  end
+
+  def read_adc_idchg()
+    return wire1.read(0x6B, 0x28, 1) * 512
+  end
+
+  def read_adc_iin()
+    return wire1.read(0x6B, 0x2B, 1) * 100
   end
 
   def page_mu()
@@ -62,14 +107,24 @@ class microUPS
       webserver.content_send("NOT FOUND!")
     end
 
+    # Start ADC conversion
+    self.enable_adc()
+
     # Start battery charge with 512mA
-    wire1.write(0x6B, 0x02, 0x0001, 2)
-    print(string.hex(wire1.read(0x6B, 0x02, 1)))
-    print(string.hex(wire1.read(0x6B, 0x03, 1)))
+    webserver.content_send("<p></p>Charge Current: " + str(self.read_charge_current()) + "mA")
+    self.write_charge_current(512)
+    webserver.content_send("<p></p>Charge Current: " + str(self.read_charge_current()) + "mA")
 
     if (charge_voltage != nil)
       webserver.content_send("<p></p>Charge Voltage: " + str(charge_voltage) + "mV")
     end
+
+    webserver.content_send("<p></p>VSYS voltage: " + str(self.read_adc_vsys()) + "mV")
+    webserver.content_send("<p></p>VBAT voltage: " + str(self.read_adc_vbat()) + "mV")
+    webserver.content_send("<p></p>VBUS voltage: " + str(self.read_adc_vbus()) + "mV")
+    webserver.content_send("<p></p>Battery charge current: " + str(self.read_adc_ichg()) + "mA")
+    webserver.content_send("<p></p>Battery discharge current: " + str(self.read_adc_idchg()) + "mA")
+    webserver.content_send("<p></p>Input current: " + str(self.read_adc_iin()) + "mA")
 
     webserver.content_send("<p></p><button onclick='la(\"&m_toggle_conf=1\");'>Test Button</button>")
     # Button back to main page
