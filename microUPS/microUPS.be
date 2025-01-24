@@ -44,14 +44,23 @@ class microUPS
   var charger_values
   var charge_enabled
   var supplies
+  var isShowSymbols
 
   def swap_bytes(value)
     return ((value >> 8) & 0xFF) + ((value << 8) & 0xFF00)
   end
 
+  def i2c_read(addr, reg_addr, byte_num)
+    return wire2.read(addr, reg_addr, byte_num)
+  end
+
+  def i2c_write(addr, reg_addr, value, byte_num)
+    return wire2.write(addr, reg_addr, value, byte_num)
+  end
+
   # Utility to read and decode value register
   def read_value_reg(reg_addr, lsb_val, bit_offset)
-    var value = wire1.read(0x6B, reg_addr, 2)
+    var value = self.i2c_read(0x6B, reg_addr, 2)
     value = self.swap_bytes(value)
     value >>=  bit_offset
     value *= lsb_val
@@ -65,12 +74,12 @@ class microUPS
     value /= lsb_val
     value <<= bit_offset
     value = self.swap_bytes(value)
-    wire1.write(0x6B, reg_addr, value, 2)
+    self.i2c_write(0x6B, reg_addr, value, 2)
   end
   
   def read_device_id()
     # Read charger ManufactureID and Device ID registers
-    return wire1.read(0x6B, 0x2E, 2)
+    return self.i2c_read(0x6B, 0x2E, 2)
   end
 
   def read_charge_voltage()
@@ -91,31 +100,31 @@ class microUPS
 
   def enable_adc()
     # ADC_CONV, EN_ADC_VBUS, EN_ADC_PSYS, EN_ADC_IIN, EN_ADC_IDCHG, EN_ADC_ICHG, EN_ADC_VSYS, EN_ADC_VBAT
-    wire1.write(0x6B, 0x3A, 0x7F80, 2)
+    self.i2c_write(0x6B, 0x3A, 0x7F80, 2)
   end
 
   def read_adc_vsys()
-    return wire1.read(0x6B, 0x2D, 1) * 64 + 8160
+    return self.i2c_read(0x6B, 0x2D, 1) * 64 + 8160
   end
 
   def read_adc_vbat()
-    return wire1.read(0x6B, 0x2C, 1) * 64 + 8160
+    return self.i2c_read(0x6B, 0x2C, 1) * 64 + 8160
   end
 
   def read_adc_vbus()
-    return wire1.read(0x6B, 0x27, 1) * 96
+    return self.i2c_read(0x6B, 0x27, 1) * 96
   end
 
   def read_adc_ichg()
-    return wire1.read(0x6B, 0x29, 1) * 128
+    return self.i2c_read(0x6B, 0x29, 1) * 128
   end
 
   def read_adc_idchg()
-    return wire1.read(0x6B, 0x28, 1) * 512
+    return self.i2c_read(0x6B, 0x28, 1) * 512
   end
 
   def read_adc_iin()
-    return wire1.read(0x6B, 0x2B, 1) * 100
+    return self.i2c_read(0x6B, 0x2B, 1) * 100
   end
 
   def read_vsysmin()
@@ -140,7 +149,7 @@ class microUPS
 
   def read_charge_status()
     var cs = ChargerStatus()
-    var reg = wire1.read(0x6B, 0x21, 1)
+    var reg = self.i2c_read(0x6B, 0x21, 1)
 
     cs.power_adapter_present = ((reg & 0x80) == 0x80)
     cs.in_fast_charge_mode = ((reg & 0x04) == 0x04)
@@ -261,6 +270,14 @@ class microUPS
     elif ((percentage > 60) && (percentage <= 80)) level = 4
     else level = 5 end
 
+    if (self.charger_values.charge_status.in_fast_charge_mode)
+      if (!self.isShowSymbols)
+        if (level > 0) 
+          level -= 1
+        end
+      end
+    end
+  
     if (level > 0)
       for i:0..level-1
         cmd += format("x2y%dR10:4", 58 - i * 6)
@@ -279,7 +296,7 @@ class microUPS
     return format("[x18y28]Psys: %dW", power)
   end
 
-  def create_display_content(supplies)
+  def create_display_content(supplies, battery_percentage)
     var cmd = "DisplayText [zs1]"
     if (supplies.usb1_en) cmd += "[x2y4K2x6y0]USB1" else cmd += "[x6y0]USB1" end
     if (supplies.usb2_en) cmd += "[x40y4K2x44y0]USB2" else cmd += "[x44y0]USB2" end
@@ -287,7 +304,7 @@ class microUPS
     if (supplies.out2_en) cmd += "[x40y16K2x44y12]OUT2" else cmd += "[x44y12]OUT2" end
     # Add button name surrounding lines
     cmd += "[x102y0v64x102y21h26x102y42h26]"
-    cmd += self.disp_add_battery_symbol(79)
+    cmd += self.disp_add_battery_symbol(battery_percentage)
     #cmd += "[x2y58R10:4x2y52R10:4x2y46R10:4x2y40R10:4x2y34R10:4]"
     cmd += self.disp_add_button_name(0, '---')
     cmd += self.disp_add_button_name(1, '---')
@@ -302,15 +319,17 @@ class microUPS
       self.write_charge_current(3072)
     end
 
-    #self.read_charger()
+    if (self.isShowSymbols) self.isShowSymbols = false else self.isShowSymbols = true end
+
+    self.read_charger()
     #self.page_mu()
     #print("Charge current:  " + str(self.charger_values.adc_ichg / 1000) + "A")
     #print("Battery voltage: " + str(self.charger_values.adc_vbat / 1000) + "V")
-    #var battery_percentage = (self.charger_values.adc_vbat - 15000) * 100 / 6000
+    var battery_percentage = (self.charger_values.adc_vbat - 15000) * 100 / 6000
     #print("Battery percentage: " + str(battery_percentage) + "%")
 
     # Write to display
-    tasmota.cmd(self.create_display_content(self.supplies))
+    tasmota.cmd(self.create_display_content(self.supplies, battery_percentage))
   end
 
   #- create a method for adding a button to the main menu -#
@@ -334,6 +353,7 @@ class microUPS
   def init()
     self.charger_values = ChargerValues()
     self.charge_enabled = false
+    self.isShowSymbols = true
     self.supplies = Supplies()
   
     tasmota.add_driver(self)
