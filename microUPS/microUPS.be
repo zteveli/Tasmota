@@ -26,6 +26,16 @@ class ChargerValues
   end
 end
 
+class DerivedValues
+  var input_pwr
+  var output_pwr
+  var charge_pwr
+  var discharge_pwr
+  var sys_current
+  var sys_pwr
+  var battery_percentage
+end
+
 class Supplies
   var usb1_en
   var usb2_en
@@ -42,9 +52,11 @@ end
 
 class microUPS
   var charger_values
+  var derived_values
   var charge_enabled
-  var supplies
+  var pw_supplies
   var isShowSymbols
+  var display_content_idx
 
   def swap_bytes(value)
     return ((value >> 8) & 0xFF) + ((value << 8) & 0xFF00)
@@ -292,26 +304,79 @@ class microUPS
     return "[x18y55tS]"
   end
 
-  def disp_add_power_val(power)
-    return format("[x18y28]Psys: %dW", power)
+  def convert_fraction(num)
+    num /= 100
+    return format("%d.%d", num / 10, num % 10)
   end
 
-  def create_display_content(supplies, battery_percentage)
+  def create_input_display_content()
+    var cmd = "DisplayText [zs1x50]INPUT[x0y12h128]"
+    var cv = self.charger_values
+    var dv = self.derived_values
+
+    cmd += '[x0y18]Voltage: ' + str(cv.adc_vbus) + 'mV'
+    cmd += '[x0y30]Current: ' + str(cv.adc_iin) + 'mA'
+    cmd += '[x0y42]Power:   ' + str(dv.input_pwr) + 'W'
+
+    return cmd
+  end
+
+  def create_system_display_content()
+    var cmd = "DisplayText [zs1x50]SYSTEM[x0y12h128]"
+    var cv = self.charger_values
+    var dv = self.derived_values
+
+    cmd += '[x0y18]Voltage: ' + str(cv.adc_vsys) + 'mV'
+    cmd += '[x0y30]Current: ' + str(dv.sys_current) + 'mA'
+    cmd += '[x0y42]Power:   ' + str(dv.sys_pwr) + 'W'
+
+    return cmd
+  end
+
+  def create_main_display_content()
     var cmd = "DisplayText [zs1]"
-    if (supplies.usb1_en) cmd += "[x2y4K2x6y0]USB1" else cmd += "[x6y0]USB1" end
-    if (supplies.usb2_en) cmd += "[x40y4K2x44y0]USB2" else cmd += "[x44y0]USB2" end
-    if (supplies.out1_en) cmd += "[x2y16K2x6y12]OUT1" else cmd += "[x6y12]OUT1" end
-    if (supplies.out2_en) cmd += "[x40y16K2x44y12]OUT2" else cmd += "[x44y12]OUT2" end
+    var power_list = tasmota.get_power()
+    if (self.pw_supplies.usb1_en) cmd += "[x2y4K2x6y0]USB1" else cmd += "[x6y0]USB1" end
+    if (self.pw_supplies.usb2_en) cmd += "[x40y4K2x44y0]USB2" else cmd += "[x44y0]USB2" end
+    if (power_list[0]) cmd += "[x2y16K2x6y12]OUT1" else cmd += "[x6y12]OUT1" end
+    if (power_list[1]) cmd += "[x40y16K2x44y12]OUT2" else cmd += "[x44y12]OUT2" end
     # Add button name surrounding lines
     cmd += "[x102y0v64x102y21h26x102y42h26]"
-    cmd += self.disp_add_battery_symbol(battery_percentage)
-    #cmd += "[x2y58R10:4x2y52R10:4x2y46R10:4x2y40R10:4x2y34R10:4]"
-    cmd += self.disp_add_button_name(0, '---')
-    cmd += self.disp_add_button_name(1, '---')
+    cmd += self.disp_add_battery_symbol(self.derived_values.battery_percentage)
+    cmd += self.disp_add_button_name(0, 'O1')
+    cmd += self.disp_add_button_name(1, 'O2')
     cmd += self.disp_add_button_name(2, 'MNU')
     cmd += self.disp_add_time()
-    cmd += self.disp_add_power_val(23)
+    cmd += format("[x18y28]Psys: %dW", self.derived_values.sys_pwr)
     return cmd
+  end
+
+  def create_display_content()
+    var cmd = ''
+    if (self.display_content_idx == 0)
+      cmd = self.create_main_display_content()
+    elif (self.display_content_idx == 1)
+      cmd = self.create_input_display_content()
+    else
+      cmd = self.create_system_display_content()
+    end
+
+    return cmd
+  end
+
+  def update_display()
+    tasmota.cmd(self.create_display_content(), true)
+  end
+
+  def calculate_derived_values()
+    var cv = self.charger_values
+    self.derived_values.input_pwr = cv.adc_vbus * cv.adc_iin / 1000000
+    self.derived_values.output_pwr = 0
+    self.derived_values.charge_pwr = cv.adc_vbat * cv.adc_ichg / 1000000
+    self.derived_values.discharge_pwr = cv.adc_vbat * cv.adc_idchg / 1000000
+    self.derived_values.sys_current = cv.adc_iin + cv.adc_ichg + cv.adc_idchg
+    self.derived_values.sys_pwr = (cv.adc_vbat * (cv.adc_idchg + cv.adc_idchg) + cv.adc_vbus * cv.adc_iin) / 1000000
+    self.derived_values.battery_percentage = (cv.adc_vbat - 15000) * 100 / 6000
   end
 
   def every_second()
@@ -322,19 +387,38 @@ class microUPS
     if (self.isShowSymbols) self.isShowSymbols = false else self.isShowSymbols = true end
 
     self.read_charger()
+    self.calculate_derived_values()
     #self.page_mu()
-    #print("Charge current:  " + str(self.charger_values.adc_ichg / 1000) + "A")
-    #print("Battery voltage: " + str(self.charger_values.adc_vbat / 1000) + "V")
-    var battery_percentage = (self.charger_values.adc_vbat - 15000) * 100 / 6000
-    #print("Battery percentage: " + str(battery_percentage) + "%")
 
-    # Write to display
-    tasmota.cmd(self.create_display_content(self.supplies, battery_percentage))
+    # Refresh display content
+    self.update_display()
   end
 
   #- create a method for adding a button to the main menu -#
   def web_add_main_button()
     webserver.content_send("<p></p><form action='/mu_page' method='post'><button>microUPS</button></form>")
+  end
+
+  def button_pressed(cmd, idx)
+    var mp_state = (idx >> 24) & 0xFF
+    var payload = (idx >> 16) & 0xFF
+  	var cmd_ = (idx >> 8) & 0xFF
+  	var index = (idx & 0xFF)
+
+    if ((cmd_ == 0))
+      if (index == 0) tasmota.cmd('Power1 2', true) self.update_display() end
+      if (index == 1) tasmota.cmd('Power2 2', true) self.update_display() end
+      if (index == 2)
+        if (self.display_content_idx < 2)
+          self.display_content_idx += 1
+        else
+          self.display_content_idx = 0
+        end
+      end
+    end
+
+
+    print(format('button_pressed: mp_state: %x, payload: %x, cmd_: %x, index: %x', mp_state, payload, cmd_, index))
   end
 
   #- As we can add only one sensor method we will have to combine them besides all other sensor readings in one method -#
@@ -352,10 +436,12 @@ class microUPS
 
   def init()
     self.charger_values = ChargerValues()
+    self.derived_values = DerivedValues()
+    self.pw_supplies = Supplies()
     self.charge_enabled = false
     self.isShowSymbols = true
-    self.supplies = Supplies()
-  
+    self.display_content_idx = 0
+
     tasmota.add_driver(self)
     self.web_add_handler()
 
