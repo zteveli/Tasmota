@@ -50,24 +50,11 @@ class Supplies
     end
 end
 
-class Display
-  var content_idx
-  var on_status
-  var show_symbols
-
-  def init()
-    self.content_idx = 0
-    self.on_status = true
-    self.show_symbols = true
-  end
-end
-
 class microUPS
   var charger_values
   var derived_values
   var charge_enabled
   var pw_supplies
-  var display
 
   def swap_bytes(value)
     return ((value >> 8) & 0xFF) + ((value << 8) & 0xFF00)
@@ -194,8 +181,6 @@ class microUPS
     self.charger_values.vsysmin = self.read_vsysmin()
     self.charger_values.iin_host = self.read_iin_host()
     self.charger_values.input_voltage_limit = self.read_input_voltage_limit()
-    print(str(self.charger_values.adc_idchg))
-    print(format('%0x', self.i2c_read(0x6B, 0x28, 2)))
   end
 
   def page_mu()
@@ -279,134 +264,9 @@ class microUPS
     self.page_mu()
   end
 
-  # Adds button name from 0 to 2 position to display
-  def disp_add_button_name(pos, text)
-    return format("[x106y%d]%s", pos * 21 + 5, text)
-  end
-
-  def disp_add_battery_symbol(percentage)
-    var cmd = '[x3y30r8:2x0y32r14:32'
-    var level
-
-    if (percentage == 0) level = 0
-    elif ((percentage > 0) && (percentage <= 20)) level = 1
-    elif ((percentage > 20) && (percentage <= 40)) level = 2
-    elif ((percentage > 40) && (percentage <= 60)) level = 3
-    elif ((percentage > 60) && (percentage <= 80)) level = 4
-    else level = 5 end
-
-    if (self.charger_values.charge_status.in_fast_charge_mode)
-      if (!self.display.show_symbols)
-        if (level > 0) 
-          level -= 1
-        end
-      end
-    end
-  
-    if (level > 0)
-      for i:0..level-1
-        cmd += format("x2y%dR10:4", 58 - i * 6)
-      end
-    end
-    cmd += ']'
-
-    return cmd
-  end
-
-  def disp_add_time()
-    return "[x18y55tS]"
-  end
-
   def convert_fraction(num)
     num /= 100
     return format("%d.%d", num / 10, num % 10)
-  end
-
-  def create_right_side_menu(text1, text2, text3)
-    var cmd = "DisplayText [zs1]"
-    cmd += "[x102y0v64x102y21h26x102y42h26]"
-    cmd += self.disp_add_button_name(0, text1)
-    cmd += self.disp_add_button_name(1, text2)
-    cmd += self.disp_add_button_name(2, text3)
-
-    return cmd
-  end
-
-  def create_measurement_display_content(title, mv, ma, w)
-    var cmd = "DisplayText [zs1]"
-    var cv = self.charger_values
-    var dv = self.derived_values
-
-    cmd += self.create_right_side_menu('O1', 'O2', 'MNU')
-    cmd += "[x0y0]" + title + "[x0y12h101]"
-    cmd += '[x0y18]Volt.: ' + str(mv) + 'mV'
-    cmd += '[x0y30]Curr.: ' + str(ma) + 'mA'
-    cmd += '[x0y42]Power: ' + str(w) + 'W'
-
-    return cmd
-  end
-
-  def create_input_display_content()
-    var cv = self.charger_values
-    var dv = self.derived_values
-
-    return self.create_measurement_display_content('INPUT', cv.adc_vbus, cv.adc_iin, dv.input_pwr)
-  end
-
-  def create_system_display_content()
-    var cv = self.charger_values
-    var dv = self.derived_values
-
-    return self.create_measurement_display_content('SYSTEM', cv.adc_vsys, dv.sys_current, dv.sys_pwr)
-  end
-
-  def create_battery_charge_display_content()
-    var cv = self.charger_values
-    var dv = self.derived_values
-
-    return self.create_measurement_display_content('BATT. CHARGE', cv.adc_vbat, cv.adc_ichg, dv.charge_pwr)
-  end
-
-  def create_battery_discharge_display_content()
-    var cv = self.charger_values
-    var dv = self.derived_values
-
-    return self.create_measurement_display_content('BATT. DISCHARGE', cv.adc_vbat, cv.adc_idchg, dv.discharge_pwr)
-  end
-
-  def create_main_display_content()
-    var cmd = "DisplayText [zs1]"
-    var power_list = tasmota.get_power()
-    cmd += self.create_right_side_menu('O1', 'O2', 'MNU')
-    if (self.pw_supplies.usb1_en) cmd += "[x2y4K2x6y0]USB1" else cmd += "[x6y0]USB1" end
-    if (self.pw_supplies.usb2_en) cmd += "[x40y4K2x44y0]USB2" else cmd += "[x44y0]USB2" end
-    if (power_list[0]) cmd += "[x2y16K2x6y12]OUT1" else cmd += "[x6y12]OUT1" end
-    if (power_list[1]) cmd += "[x40y16K2x44y12]OUT2" else cmd += "[x44y12]OUT2" end
-    cmd += self.disp_add_battery_symbol(self.derived_values.battery_percentage)
-    cmd += self.disp_add_time()
-    cmd += format("[x18y28]Psys: %dW", self.derived_values.sys_pwr)
-    return cmd
-  end
-
-  def create_display_content()
-    var cmd = ''
-    if (self.display.content_idx == 0)
-      cmd = self.create_main_display_content()
-    elif (self.display.content_idx == 1)
-      cmd = self.create_input_display_content()
-    elif (self.display.content_idx == 2)
-      cmd = self.create_system_display_content()
-    elif (self.display.content_idx == 3)
-      cmd = self.create_battery_charge_display_content()
-    else
-      cmd = self.create_battery_discharge_display_content()
-    end
-
-    return cmd
-  end
-
-  def update_display()
-    tasmota.cmd(self.create_display_content(), true)
   end
 
   def calculate_derived_values()
@@ -416,48 +276,13 @@ class microUPS
     self.derived_values.charge_pwr = cv.adc_vbat * cv.adc_ichg / 1000000
     self.derived_values.discharge_pwr = cv.adc_vbat * cv.adc_idchg / 1000000
     self.derived_values.sys_current = cv.adc_iin + cv.adc_ichg + cv.adc_idchg
-    self.derived_values.sys_pwr = (cv.adc_vbat * (cv.adc_idchg + cv.adc_idchg) + cv.adc_vbus * cv.adc_iin) / 1000000
+    self.derived_values.sys_pwr = (cv.adc_vsys * (cv.adc_ichg + cv.adc_idchg) + cv.adc_vbus * cv.adc_iin) / 1000000
     self.derived_values.battery_percentage = (cv.adc_vbat - 15000) * 100 / 6000
-  end
-
-  def every_second()
-    if self.charge_enabled == true
-      self.write_charge_current(3072)
-    end
-
-    if (self.display.show_symbols) self.display.show_symbols = false else self.display.show_symbols = true end
-
-    self.read_charger()
-    self.calculate_derived_values()
-    #self.page_mu()
-
-    # Refresh display content
-    self.update_display()
   end
 
   #- create a method for adding a button to the main menu -#
   def web_add_main_button()
     webserver.content_send("<p></p><form action='/mu_page' method='post'><button>microUPS</button></form>")
-  end
-
-  def display_off()
-    print('display_off()')
-    self.display.on_status = false
-    tasmota.cmd('DisplayText [o]', true)
-    tasmota.remove_cron("dispOff")
-  end
-
-  def set_display_off_timer()
-    print('set_display_off_timer()')
-#    tasmota.remove_cron("dispOff")
-    tasmota.add_cron("*/10 * * * * *", /-> self.display_off(), "dispOff")
-  end
-
-  def display_on()
-    print('display_on()')
-    self.display.on_status = true
-    tasmota.cmd('DisplayText [O]', true)
-    self.set_display_off_timer()
   end
 
   def button_pressed(cmd, idx)
@@ -467,22 +292,12 @@ class microUPS
   	var index = (idx & 0xFF)
 
     if ((cmd_ == 0))
-      if (index == 0) tasmota.cmd('Power1 2', true) self.update_display() end
-      if (index == 1) tasmota.cmd('Power2 2', true) self.update_display() end
-      if (index == 2)
-        if (self.display.on_status)
-          if (self.display.content_idx < 4)
-            self.display.content_idx += 1
-          else
-            self.display.content_idx = 0
-          end
-        end
-      end
-      self.display_on()
+      if (index == 0) tasmota.cmd('Power1 2', true) md.main_content() md.refresh_content(true) end
+      if (index == 1) tasmota.cmd('Power2 2', true) md.main_content() md.refresh_content(true) end
+      if (index == 2) md.next_content() md.refresh_content(true) end
     end
 
-
-    print(format('button_pressed: mp_state: %x, payload: %x, cmd_: %x, index: %x', mp_state, payload, cmd_, index))
+#    print(format('button_pressed: mp_state: %x, payload: %x, cmd_: %x, index: %x', mp_state, payload, cmd_, index))
   end
 
   #- As we can add only one sensor method we will have to combine them besides all other sensor readings in one method -#
@@ -490,6 +305,48 @@ class microUPS
     if webserver.has_arg("btn1")
       print("btn1")
     end
+  end
+
+  def every_250ms()
+    # Run display handler
+    md.handler_250ms()
+  end
+
+  def every_second()
+    var disp_data = MupsDisplayData()
+    var power_list = tasmota.get_power()
+
+    if self.charge_enabled == true
+      self.write_charge_current(3072)
+    end
+
+    self.read_charger()
+    self.calculate_derived_values()
+    #self.page_mu()
+
+    # Run display handler
+    var cv = self.charger_values
+    var dv = self.derived_values
+    disp_data.usb1_en = false
+    disp_data.usb2_en = false
+    disp_data.hp1_en = power_list[0]
+    disp_data.hp2_en = power_list[1]
+    disp_data.system_voltage = cv.adc_vsys
+    disp_data.system_current = dv.sys_current
+    disp_data.system_power = dv.sys_pwr
+    disp_data.input_voltage = cv.adc_vbus
+    disp_data.input_current = cv.adc_iin
+    disp_data.input_power = dv.input_pwr
+    disp_data.is_charging = cv.charge_status.in_fast_charge_mode || cv.charge_status.in_pre_charge_mode
+    disp_data.batt_percentage = dv.battery_percentage
+    disp_data.batt_voltage = cv.adc_vbat
+    disp_data.batt_charge_current = cv.adc_ichg
+    disp_data.batt_charge_power = dv.charge_pwr
+    disp_data.batt_discharge_current = cv.adc_idchg
+    disp_data.batt_discharge_power = dv.discharge_pwr
+
+    md.update_data(disp_data)
+    md.handler_1s()
   end
 
   def web_add_handler()
@@ -502,7 +359,6 @@ class microUPS
     self.charger_values = ChargerValues()
     self.derived_values = DerivedValues()
     self.pw_supplies = Supplies()
-    self.display = Display()
     self.charge_enabled = false
 
     tasmota.add_driver(self)
@@ -518,7 +374,7 @@ class microUPS
     self.enable_adc()
 
     # Display on
-    self.display_on()
+    md.refresh_content(true)
   end
 
   def close()
