@@ -1,0 +1,4 @@
+- In case of power up from battery only the measured system voltage is incorrect (8160mV) instead of the real measured value. The measured value will be correct after input DC adapter connection.
+- AHT25 temp. sensor is not identified on I2C 2 automatically. It seems that Tasmota scans only the I2C 1.
+- Impelment fan control based on AHT25 temp and humidity data.
+- After pushung a button while the display was switched off the following phenomenon can be seen the display on command executed first and then the content is refreshed so the display seem to flash once.
