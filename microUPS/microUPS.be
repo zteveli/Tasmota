@@ -60,17 +60,17 @@ class microUPS
     return ((value >> 8) & 0xFF) + ((value << 8) & 0xFF00)
   end
 
-  def i2c_read(addr, reg_addr, byte_num)
-    return wire2.read(addr, reg_addr, byte_num)
+  def charger_read(reg_addr, byte_num)
+    return wire2.read(0x6B, reg_addr, byte_num)
   end
 
-  def i2c_write(addr, reg_addr, value, byte_num)
-    return wire2.write(addr, reg_addr, value, byte_num)
+  def charger_write(reg_addr, value, byte_num)
+    return wire2.write(0x6B, reg_addr, value, byte_num)
   end
 
   # Utility to read and decode value register
   def read_value_reg(reg_addr, lsb_val, bit_offset)
-    var value = self.i2c_read(0x6B, reg_addr, 2)
+    var value = self.charger_read(reg_addr, 2)
     value = self.swap_bytes(value)
     value >>=  bit_offset
     value *= lsb_val
@@ -84,12 +84,12 @@ class microUPS
     value /= lsb_val
     value <<= bit_offset
     value = self.swap_bytes(value)
-    self.i2c_write(0x6B, reg_addr, value, 2)
+    self.charger_write(reg_addr, value, 2)
   end
   
   def read_device_id()
     # Read charger ManufactureID and Device ID registers
-    return self.i2c_read(0x6B, 0x2E, 2)
+    return self.charger_read(0x2E, 2)
   end
 
   def read_charge_voltage()
@@ -110,31 +110,31 @@ class microUPS
 
   def enable_adc()
     # ADC_CONV, EN_ADC_VBUS, EN_ADC_PSYS, EN_ADC_IIN, EN_ADC_IDCHG, EN_ADC_ICHG, EN_ADC_VSYS, EN_ADC_VBAT
-    self.i2c_write(0x6B, 0x3A, 0x7F80, 2)
+    self.charger_write(0x3A, 0x7F80, 2)
   end
 
   def read_adc_vsys()
-    return self.i2c_read(0x6B, 0x2D, 1) * 64 + 8160
+    return self.charger_read(0x2D, 1) * 64 + 8160
   end
 
   def read_adc_vbat()
-    return self.i2c_read(0x6B, 0x2C, 1) * 64 + 8160
+    return self.charger_read(0x2C, 1) * 64 + 8160
   end
 
   def read_adc_vbus()
-    return self.i2c_read(0x6B, 0x27, 1) * 96
+    return self.charger_read(0x27, 1) * 96
   end
 
   def read_adc_ichg()
-    return self.i2c_read(0x6B, 0x29, 1) * 128
+    return self.charger_read(0x29, 1) * 128
   end
 
   def read_adc_idchg()
-    return self.i2c_read(0x6B, 0x28, 1) * 512
+    return self.charger_read(0x28, 1) * 512
   end
 
   def read_adc_iin()
-    return self.i2c_read(0x6B, 0x2B, 1) * 100
+    return self.charger_read(0x2B, 1) * 100
   end
 
   def read_vsysmin()
@@ -159,7 +159,7 @@ class microUPS
 
   def read_charge_status()
     var cs = ChargerStatus()
-    var reg = self.i2c_read(0x6B, 0x21, 1)
+    var reg = self.charger_read(0x21, 1)
 
     cs.power_adapter_present = ((reg & 0x80) == 0x80)
     cs.in_fast_charge_mode = ((reg & 0x04) == 0x04)
@@ -369,6 +369,9 @@ class microUPS
 
     # Set input current limit to 8A
     self.write_iin_host(8000)
+
+    # Set performance mode (ChargeOption0.EN_LWPWR=0b)
+    self.charger_write(0x00, 0x0E67, 2)
 
     # Start ADC conversion
     self.enable_adc()
