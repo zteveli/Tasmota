@@ -19,6 +19,7 @@ class ChargerValues
   var adc_iin
   var vsysmin
   var iin_host
+  var iin_dpm
   var input_voltage_limit
 
   def init()
@@ -145,12 +146,24 @@ class microUPS
     self.write_value_reg(0x0C, voltage, 100, 8)
   end
 
+  def read_iin_dpm_host(addr)
+    var current = self.read_value_reg(addr, 100, 8)
+
+    if (current == 0) current = 300 end
+    if (current > 0) current += 200 end
+    return current
+  end
+
   def read_iin_host()
-    return self.read_value_reg(0x0E, 100, 8)
+    return self.read_iin_dpm_host(0x0E)
   end
 
   def write_iin_host(ma)
     self.write_value_reg(0x0E, ma, 100, 8)
+  end
+
+  def read_iin_dpm()
+    return self.read_iin_dpm_host(0x24)
   end
 
   def read_input_voltage_limit()
@@ -180,6 +193,7 @@ class microUPS
     self.charger_values.adc_iin = self.read_adc_iin()
     self.charger_values.vsysmin = self.read_vsysmin()
     self.charger_values.iin_host = self.read_iin_host()
+    self.charger_values.iin_dpm = self.read_iin_dpm()
     self.charger_values.input_voltage_limit = self.read_input_voltage_limit()
   end
 
@@ -201,7 +215,8 @@ class microUPS
     webserver.content_send('<p></p><fieldset><legend><b>Parameters</b></legend>')
     webserver.content_send('<p></p><fieldset><legend><b>Input</b></legend>')
     webserver.content_send("<p></p>Min. input voltage limit: <b>" + str(cv.input_voltage_limit) + "</b>mV")
-    webserver.content_send("<p></p>Input current limit: <b>" + str(cv.iin_host) + "</b>mA")
+    webserver.content_send("<p></p>Input current limit (1): <b>" + str(cv.iin_host) + "</b>mA")
+    webserver.content_send("<p></p>Input current limit (2): <b>" + str(cv.iin_dpm) + "</b>mA")
     webserver.content_send('</fieldset>')
     webserver.content_send('<p></p><fieldset><legend><b>System</b></legend>')
     webserver.content_send("<p></p>VSYS min. voltage: <b>" + str(cv.vsysmin) + "</b>mV")
@@ -372,6 +387,9 @@ class microUPS
 
     # Set performance mode (ChargeOption0.EN_LWPWR=0b)
     self.charger_write(0x00, 0x0E67, 2)
+
+    # Set EN_EXTILIM=0b in order to not use input current limit set by hardware but using current limit set in iin_host and iin_dpm
+    # TODO Set ChargeOption2.EN_EXTILIM=0b
 
     # Start ADC conversion
     self.enable_adc()
