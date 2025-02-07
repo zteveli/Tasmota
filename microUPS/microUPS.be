@@ -1,42 +1,6 @@
 import webserver
 import string
 
-class ChargerStatus
-  var power_adapter_present
-  var in_fast_charge_mode
-  var in_pre_charge_mode
-  end
-
-class ChargerValues
-  var charge_status
-  var charge_voltage
-  var charge_current
-  var adc_vsys
-  var adc_vbat
-  var adc_vbus
-  var adc_ichg
-  var adc_idchg
-  var adc_iin
-  var vsysmin
-  var iin_host
-  var iin_dpm
-  var input_voltage_limit
-
-  def init()
-    self.charge_status = ChargerStatus()
-  end
-end
-
-class DerivedValues
-  var input_pwr
-  var output_pwr
-  var charge_pwr
-  var discharge_pwr
-  var sys_current
-  var sys_pwr
-  var battery_percentage
-end
-
 class Supplies
   var usb1_en
   var usb2_en
@@ -52,159 +16,20 @@ class Supplies
 end
 
 class microUPS
-  var charger_values
-  var derived_values
   var charge_enabled
   var pw_supplies
 
-  def swap_bytes(value)
-    return ((value >> 8) & 0xFF) + ((value << 8) & 0xFF00)
-  end
-
-  def charger_read(reg_addr, byte_num)
-    return wire2.read(0x6B, reg_addr, byte_num)
-  end
-
-  def charger_write(reg_addr, value, byte_num)
-    return wire2.write(0x6B, reg_addr, value, byte_num)
-  end
-
-  # Utility to read and decode value register
-  def read_value_reg(reg_addr, lsb_val, bit_offset)
-    var value = self.charger_read(reg_addr, 2)
-    value = self.swap_bytes(value)
-    value >>=  bit_offset
-    value *= lsb_val
-
-    return value
-  end
-
-  # Utility to write to value register
-  def write_value_reg(reg_addr, value, lsb_val, bit_offset)
-
-    value /= lsb_val
-    value <<= bit_offset
-    value = self.swap_bytes(value)
-    self.charger_write(reg_addr, value, 2)
-  end
-  
-  def read_device_id()
-    # Read charger ManufactureID and Device ID registers
-    return self.charger_read(0x2E, 2)
-  end
-
-  def read_charge_voltage()
-    return self.read_value_reg(0x04, 8, 3)
-  end
-
-  def write_charge_voltage(mv)
-    return self.write_value_reg(0x04, mv, 8, 3)
-  end
-
-  def read_charge_current()
-    return self.read_value_reg(0x02, 128, 6)
-  end
-
-  def write_charge_current(value)
-    self.write_value_reg(0x02, value, 128, 6)
-  end
-
-  def enable_adc()
-    # ADC_CONV, EN_ADC_VBUS, EN_ADC_PSYS, EN_ADC_IIN, EN_ADC_IDCHG, EN_ADC_ICHG, EN_ADC_VSYS, EN_ADC_VBAT
-    self.charger_write(0x3A, 0x7F80, 2)
-  end
-
-  def read_adc_vsys()
-    return self.charger_read(0x2D, 1) * 64 + 8160
-  end
-
-  def read_adc_vbat()
-    return self.charger_read(0x2C, 1) * 64 + 8160
-  end
-
-  def read_adc_vbus()
-    return self.charger_read(0x27, 1) * 96
-  end
-
-  def read_adc_ichg()
-    return self.charger_read(0x29, 1) * 128
-  end
-
-  def read_adc_idchg()
-    return self.charger_read(0x28, 1) * 512
-  end
-
-  def read_adc_iin()
-    return self.charger_read(0x2B, 1) * 100
-  end
-
-  def read_vsysmin()
-    return self.read_value_reg(0x0C, 100, 8)
-  end
-
-  def write_vsysmin(voltage)
-    self.write_value_reg(0x0C, voltage, 100, 8)
-  end
-
-  def read_iin_dpm_host(addr)
-    var current = self.read_value_reg(addr, 100, 8)
-
-    if (current == 0) current = 300 end
-    if (current > 0) current += 200 end
-    return current
-  end
-
-  def read_iin_host()
-    return self.read_iin_dpm_host(0x0E)
-  end
-
-  def write_iin_host(ma)
-    self.write_value_reg(0x0E, ma, 100, 8)
-  end
-
-  def read_iin_dpm()
-    return self.read_iin_dpm_host(0x24)
-  end
-
-  def read_input_voltage_limit()
-    return self.read_value_reg(0x0A, 64, 6)
-  end
-
-  def read_charge_status()
-    var cs = ChargerStatus()
-    var reg = self.charger_read(0x21, 1)
-
-    cs.power_adapter_present = ((reg & 0x80) == 0x80)
-    cs.in_fast_charge_mode = ((reg & 0x04) == 0x04)
-    cs.in_pre_charge_mode = ((reg & 0x02) == 0x02)
-  
-    return cs
-  end
-
-  def read_charger()
-    self.charger_values.charge_status = self.read_charge_status()
-    self.charger_values.charge_voltage = self.read_charge_voltage()
-    self.charger_values.charge_current = self.read_charge_current()
-    self.charger_values.adc_vsys = self.read_adc_vsys()
-    self.charger_values.adc_vbat = self.read_adc_vbat()
-    self.charger_values.adc_vbus = self.read_adc_vbus()
-    self.charger_values.adc_ichg = self.read_adc_ichg()
-    self.charger_values.adc_idchg = self.read_adc_idchg()
-    self.charger_values.adc_iin = self.read_adc_iin()
-    self.charger_values.vsysmin = self.read_vsysmin()
-    self.charger_values.iin_host = self.read_iin_host()
-    self.charger_values.iin_dpm = self.read_iin_dpm()
-    self.charger_values.input_voltage_limit = self.read_input_voltage_limit()
-  end
-
   def page_mu()
-    var cv = self.charger_values
+    var m = chrg.read_measurements()
+    var cs = chrg.read_status()
+    var st = chrg.read_settings()
+
     webserver.content_start("microUPS")
     webserver.content_send_style()
     webserver.content_send('<style>table{width: 100%;border-collapse: collapse;}th, td{border: 1px solid gray;padding: 8px;text-align: center;}th{background-color: gray;}</style>')
     webserver.content_send("<p></p>Device ID: ")
 
-    var dev_id = self.read_device_id()
+    var dev_id = chrg.read_device_id()
 
     if (dev_id != nil)
       webserver.content_send(string.hex(dev_id))
@@ -214,39 +39,39 @@ class microUPS
 
     webserver.content_send('<p></p><fieldset><legend><b>Parameters</b></legend>')
     webserver.content_send('<p></p><fieldset><legend><b>Input</b></legend>')
-    webserver.content_send("<p></p>Min. input voltage limit: <b>" + str(cv.input_voltage_limit) + "</b>mV")
-    webserver.content_send("<p></p>Input current limit (1): <b>" + str(cv.iin_host) + "</b>mA")
-    webserver.content_send("<p></p>Input current limit (2): <b>" + str(cv.iin_dpm) + "</b>mA")
+    webserver.content_send("<p></p>Minimum input voltage: <b>" + str(st.input_voltage_min) + "</b>mV")
+    webserver.content_send("<p></p>Input current limit (1): <b>" + str(st.input_current_limit_1) + "</b>mA")
+    webserver.content_send("<p></p>Input current limit (2): <b>" + str(st.input_current_limit_2) + "</b>mA")
     webserver.content_send('</fieldset>')
     webserver.content_send('<p></p><fieldset><legend><b>System</b></legend>')
-    webserver.content_send("<p></p>VSYS min. voltage: <b>" + str(cv.vsysmin) + "</b>mV")
+    webserver.content_send("<p></p>VSYS min. voltage: <b>" + str(st.system_voltage_min) + "</b>mV")
     webserver.content_send('</fieldset>')
     webserver.content_send('<p></p><fieldset><legend><b>Battery charger</b></legend>')
-    webserver.content_send("<p></p>Max. charge Voltage: <b>" + str(cv.charge_voltage) + "</b>mV")
-    webserver.content_send("<p></p>Charge Current: <b>" + str(cv.charge_current) + "</b>mA")
+    webserver.content_send("<p></p>Max. charge Voltage: <b>" + str(st.charge_voltage_max) + "</b>mV")
+    webserver.content_send("<p></p>Max. charge Current: <b>" + str(st.charge_current_max) + "</b>mA")
     webserver.content_send('</fieldset>')
     webserver.content_send('</fieldset>')
 
     webserver.content_send('<p></p><fieldset><legend><b>Measurements</b></legend>')
     webserver.content_send('<p></p><fieldset><legend><b>Input</b></legend>')
-    webserver.content_send("<div class='vbus_voltage' id='vbus_voltage'>VBUS voltage: <b>" + str(cv.adc_vbus) + "</b>mV")
-    webserver.content_send("<p></p>VBUS voltage: <b>" + str(cv.adc_vbus) + "</b>mV")
-    webserver.content_send("<p></p>Input current: <b>" + str(cv.adc_iin) + "</b>mA")
+    webserver.content_send("<div class='vbus_voltage' id='vbus_voltage'>VBUS voltage: <b>" + str(m.vbus_voltage) + "</b>mV")
+    webserver.content_send("<p></p>VBUS voltage: <b>" + str(m.vbus_voltage) + "</b>mV")
+    webserver.content_send("<p></p>Input current: <b>" + str(m.input_current) + "</b>mA")
     webserver.content_send('</fieldset>')
     webserver.content_send('<p></p><fieldset><legend><b>System</b></legend>')
-    webserver.content_send("<p></p>VSYS voltage: <b>" + str(cv.adc_vsys) + "</b>mV")
+    webserver.content_send("<p></p>VSYS voltage: <b>" + str(m.system_voltage) + "</b>mV")
     webserver.content_send('</fieldset>')
     webserver.content_send('<p></p><fieldset><legend><b>Battery</b></legend>')
-    webserver.content_send("<p></p>VBAT voltage: <b>" + str(cv.adc_vbat) + "</b>mV")
-    webserver.content_send("<p></p>Battery charge current: <b>" + str(cv.adc_ichg) + "</b>mA")
-    webserver.content_send("<p></p>Battery discharge current: <b>" + str(cv.adc_idchg) + "</b>mA")
+    webserver.content_send("<p></p>VBAT voltage: <b>" + str(m.battery_voltage) + "</b>mV")
+    webserver.content_send("<p></p>Battery charge current: <b>" + str(m.battery_charge_current) + "</b>mA")
+    webserver.content_send("<p></p>Battery discharge current: <b>" + str(m.battery_discharge_current) + "</b>mA")
     webserver.content_send('</fieldset>')
     webserver.content_send('</fieldset>')
 
     webserver.content_send('<p></p><fieldset><legend><b>Status</b></legend>')
-    webserver.content_send("<p></p>Power adapter present: <b>" + str(cv.charge_status.power_adapter_present) + "</b>")
-    webserver.content_send("<p></p>In fast charge: <b>" + str(cv.charge_status.in_fast_charge_mode) + "</b>")
-    webserver.content_send("<p></p>In pre-charge: <b>" + str(cv.charge_status.in_pre_charge_mode) + "</b>")
+    webserver.content_send("<p></p>Power adapter present: <b>" + str(cs.power_adapter_present) + "</b>")
+    webserver.content_send("<p></p>In fast charge: <b>" + str(cs.in_fast_charge_mode) + "</b>")
+    webserver.content_send("<p></p>In pre-charge: <b>" + str(cs.in_pre_charge_mode) + "</b>")
     webserver.content_send('</fieldset>')
 
 #    Measurement update code
@@ -270,8 +95,7 @@ class microUPS
     if !webserver.check_privileged_access() return nil end
 
     if webserver.has_arg("charge_start")
-      # Start charge with 3072mA
-      self.write_charge_current(3072)
+      chrg.start_charge()
       self.charge_enabled = true
       print("charge_start")
     end
@@ -282,17 +106,6 @@ class microUPS
   def convert_fraction(num)
     num /= 100
     return format("%d.%d", num / 10, num % 10)
-  end
-
-  def calculate_derived_values()
-    var cv = self.charger_values
-    self.derived_values.input_pwr = cv.adc_vbus * cv.adc_iin / 1000000
-    self.derived_values.output_pwr = 0
-    self.derived_values.charge_pwr = cv.adc_vbat * cv.adc_ichg / 1000000
-    self.derived_values.discharge_pwr = cv.adc_vbat * cv.adc_idchg / 1000000
-    self.derived_values.sys_current = cv.adc_iin + cv.adc_ichg + cv.adc_idchg
-    self.derived_values.sys_pwr = (cv.adc_vsys * (cv.adc_ichg + cv.adc_idchg) + cv.adc_vbus * cv.adc_iin) / 1000000
-    self.derived_values.battery_percentage = (cv.adc_vbat - 15000) * 100 / 6000
   end
 
   #- create a method for adding a button to the main menu -#
@@ -332,33 +145,33 @@ class microUPS
     var power_list = tasmota.get_power()
 
     if self.charge_enabled == true
-      self.write_charge_current(3072)
+      chrg.start_charge()
     end
 
-    self.read_charger()
-    self.calculate_derived_values()
     #self.page_mu()
 
     # Run display handler
-    var cv = self.charger_values
-    var dv = self.derived_values
+    var m = chrg.read_measurements()
+    var dv = chrg.read_derived_values()
+    var cs = chrg.read_status()
+
     disp_data.usb1_en = false
     disp_data.usb2_en = false
     disp_data.hp1_en = power_list[0]
     disp_data.hp2_en = power_list[1]
-    disp_data.system_voltage = cv.adc_vsys
+    disp_data.system_voltage = m.system_voltage
     disp_data.system_current = dv.sys_current
-    disp_data.system_power = dv.sys_pwr
-    disp_data.input_voltage = cv.adc_vbus
-    disp_data.input_current = cv.adc_iin
-    disp_data.input_power = dv.input_pwr
-    disp_data.is_charging = cv.charge_status.in_fast_charge_mode || cv.charge_status.in_pre_charge_mode
+    disp_data.system_power = dv.sys_power
+    disp_data.input_voltage = m.vbus_voltage
+    disp_data.input_current = m.input_current
+    disp_data.input_power = dv.input_power
+    disp_data.is_charging = cs.in_fast_charge_mode || cs.in_pre_charge_mode
     disp_data.batt_percentage = dv.battery_percentage
-    disp_data.batt_voltage = cv.adc_vbat
-    disp_data.batt_charge_current = cv.adc_ichg
-    disp_data.batt_charge_power = dv.charge_pwr
-    disp_data.batt_discharge_current = cv.adc_idchg
-    disp_data.batt_discharge_power = dv.discharge_pwr
+    disp_data.batt_voltage = m.battery_voltage
+    disp_data.batt_charge_current = m.battery_charge_current
+    disp_data.batt_charge_power = dv.charge_power
+    disp_data.batt_discharge_current = m.battery_discharge_current
+    disp_data.batt_discharge_power = dv.discharge_power
 
     md.update_data(disp_data)
     md.handler_1s()
@@ -371,28 +184,11 @@ class microUPS
   end
 
   def init()
-    self.charger_values = ChargerValues()
-    self.derived_values = DerivedValues()
     self.pw_supplies = Supplies()
     self.charge_enabled = false
 
     tasmota.add_driver(self)
     self.web_add_handler()
-
-    # Set maximum charge voltage
-    self.write_charge_voltage(20900)
-
-    # Set input current limit to 8A
-    self.write_iin_host(8000)
-
-    # Set performance mode (ChargeOption0.EN_LWPWR=0b)
-    self.charger_write(0x00, 0x0E67, 2)
-
-    # Set EN_EXTILIM=0b in order to not use input current limit set by hardware but using current limit set in iin_host and iin_dpm
-    # TODO Set ChargeOption2.EN_EXTILIM=0b
-
-    # Start ADC conversion
-    self.enable_adc()
 
     # Display on
     md.refresh_content(true)
