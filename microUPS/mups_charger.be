@@ -234,6 +234,10 @@ class Charger
     self.write_charge_current(0)
   end
 
+  def is_charging()
+    return (self.read_charge_current() > 0)
+  end
+
   def read_status()
     return self.status
   end
@@ -255,6 +259,12 @@ class Charger
     self.measurements = self.read_measured_values()
     self.status = self.read_charger_status()
     self.derived_values = self.calculate_derived_values()
+
+    # Charge watchdog handling
+    if self.is_charging()
+      # Write charge current to feed charge watchdog
+      self.start_charge()
+    end
   end
 
   # Charger class initialization

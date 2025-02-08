@@ -1,3 +1,4 @@
 load("mups_charger.be")
 load("mups_display.be")
-load("microUPS.be")
+load("mups_web_page.be")
+load("mups_main.be")
